@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import JSZip from 'jszip'
 import {
   createScriptSlug,
-  generateM4LSpec,
   generateParameterNames,
-  generateRemoteScriptFiles,
 } from './generators/remoteScriptGenerator.js'
+import { buildRemoteMapperPack, createTerminalCommands } from './generators/packGenerator.js'
+import { createNanoKontrol2Demo, NANO_KONTROL2_TARGET } from './demo/nanoKontrol2Demo.js'
+import maxForLivePatch from '../../maxforlive/templates/M4L-Remote-Target/M4L-Remote-Target.maxpat?raw'
+import maxForLiveReadme from '../../maxforlive/templates/M4L-Remote-Target/README.md?raw'
+import maxForLiveParameterNames from '../../maxforlive/templates/M4L-Remote-Target/PARAMETER_NAMES.md?raw'
 
-const DEFAULT_TARGET = {
-  targetDeviceName: 'M4L Remote Target',
-  parameterCount: 8,
-  parameterPrefix: 'M4L Param',
-}
+const DEFAULT_TARGET = { ...NANO_KONTROL2_TARGET }
 
 const STEP_LABELS = ['Connect Controller', 'Max for Live Target', 'Mapping', 'Export Pack']
 
@@ -65,6 +63,7 @@ function App() {
   const [target, setTarget] = useState(DEFAULT_TARGET)
   const [mappings, setMappings] = useState([])
   const [isExporting, setIsExporting] = useState(false)
+  const [lastExportedSlug, setLastExportedSlug] = useState('')
 
   const parameterNames = useMemo(() => generateParameterNames(target), [target])
   const scriptSlug = useMemo(() => createScriptSlug(target.targetDeviceName), [target.targetDeviceName])
@@ -144,25 +143,10 @@ function App() {
   }
 
   const loadDemo = () => {
-    const demoControls = [16, 17, 18, 19, 45].map((cc) => ({
-      ...createControl('nanoKONTROL2', 0, cc, cc === 45 ? 127 : 64),
-      label: cc === 45 ? 'Cycle / Capture' : `Knob ${cc - 15}`,
-      controlKind: cc === 45 ? 'button' : 'knob',
-    }))
-    const demoMappings = demoControls.slice(0, 4).map((control, index) =>
-      createParameterMapping(control, target, parameterNames[index], index))
-    demoMappings.push({
-      id: 'mapping-demo-capture',
-      source: { ...demoControls[4] },
-      targetType: 'global_action',
-      targetDeviceName: target.targetDeviceName,
-      targetParameterName: parameterNames[0],
-      parameterIndex: '',
-      actionName: 'Capture MIDI',
-      triggerMode: 'value_eq_127',
-    })
-    setControls(demoControls)
-    setMappings(demoMappings)
+    const demo = createNanoKontrol2Demo()
+    setTarget(demo.target)
+    setControls(demo.controls)
+    setMappings(demo.mappings)
     setLastMessage({
       endpointName: 'nanoKONTROL2', type: 'CONTROLCHANGE', userChannel: 1,
       frameworkChannel: 0, data1: 45, data2: 127, timestamp: performance.now(),
@@ -170,30 +154,40 @@ function App() {
     setActiveStep(2)
   }
 
-  const exportPack = async () => {
+  const downloadPack = async (packTarget, packMappings) => {
     setIsExporting(true)
     try {
-      const files = generateRemoteScriptFiles({ target, mappings, scriptSlug })
-      const zip = new JSZip()
-      const root = zip.folder('M4L_Remote_Mapper_Pack')
-      const scriptFolder = root.folder(`Remote Scripts/${scriptSlug}`)
-      scriptFolder.file('__init__.py', files['__init__.py'])
-      scriptFolder.file(`${scriptSlug}.py`, files[`${scriptSlug}.py`])
-      scriptFolder.file('profile.json', files['profile.json'])
-      root.file('README.md', files['README.md'])
-      root.file('INSTALLATION.md', files['INSTALLATION.md'])
-      root.file(`Max for Live/M4L_Remote_Target_${target.parameterCount}_Params_SPEC.md`, generateM4LSpec(target))
-      root.file('Max for Live/README.md', `# Max for Live target\n\nNo .amxd is generated in v0.1. Build the device from the adjacent specification and use exact Long Names for every exposed parameter.\n`)
-      const blob = await zip.generateAsync({ type: 'blob' })
+      const { zip, scriptSlug: exportedSlug } = buildRemoteMapperPack({
+        target: packTarget,
+        mappings: packMappings,
+        templates: {
+          maxpat: maxForLivePatch,
+          readme: maxForLiveReadme,
+          parameterNames: maxForLiveParameterNames,
+        },
+      })
+      const blob = await zip.generateAsync({ type: 'blob', platform: 'UNIX' })
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `${scriptSlug}_Pack.zip`
+      anchor.download = `${exportedSlug}_Pack.zip`
       anchor.click()
       window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setLastExportedSlug(exportedSlug)
     } finally {
       setIsExporting(false)
     }
+  }
+
+  const exportPack = () => downloadPack(target, mappings)
+
+  const exportKnownGoodTestPack = async () => {
+    const demo = createNanoKontrol2Demo()
+    setTarget(demo.target)
+    setControls(demo.controls)
+    setMappings(demo.mappings)
+    setActiveStep(3)
+    await downloadPack(demo.target, demo.mappings)
   }
 
   const readiness = [
@@ -316,10 +310,12 @@ function App() {
                   <h2>{scriptSlug}</h2>
                   <p className="muted">A portable Remote Script, its mapping profile, the Max for Live device specification, and installation docs.</p>
                   <button className="export-button" onClick={exportPack} disabled={!mappings.length || isExporting}><Icon name="export" />{isExporting ? 'Building ZIP…' : 'Download ZIP pack'}</button>
+                  <button className="test-pack-button" onClick={exportKnownGoodTestPack} disabled={isExporting}><Icon name="signal" /> Generate Known-Good nanoKONTROL2 Test Pack</button>
                   <small className="privacy-note">Generated entirely in this browser session.</small>
                 </div>
-                <FileTree scriptSlug={scriptSlug} parameterCount={target.parameterCount} />
+                <FileTree scriptSlug={scriptSlug} />
               </div>
+              {lastExportedSlug && <SetupWizard key={lastExportedSlug} scriptSlug={lastExportedSlug} inputName={inputs.find((input) => input.id === selectedInputId)?.name || 'nanoKONTROL2 SLIDER/KNOB'} />}
             </article>
           )}
         </section>
@@ -373,18 +369,95 @@ function EmptyState({ title, body }) {
   return <div className="empty-state"><span className="pulse-ring"><i /></span><div><strong>{title}</strong><p>{body}</p></div></div>
 }
 
-function FileTree({ scriptSlug, parameterCount }) {
-  return <div className="file-tree"><div className="file-tree__head"><span>ZIP CONTENTS</span><Badge status="ready">7 FILES</Badge></div><pre>{`M4L_Remote_Mapper_Pack/
-├── Remote Scripts/
+function FileTree({ scriptSlug }) {
+  return <div className="file-tree"><div className="file-tree__head"><span>ZIP CONTENTS</span><Badge status="ready">9 FILES</Badge></div><pre>{`M4L_Remote_Mapper_Pack/
+├── 1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/
 │   └── ${scriptSlug}/
 │       ├── __init__.py
 │       ├── ${scriptSlug}.py
 │       └── profile.json
-├── Max for Live/
-│   ├── M4L_Remote_Target_${parameterCount}_Params_SPEC.md
-│   └── README.md
-├── INSTALLATION.md
-└── README.md`}</pre></div>
+├── 2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/
+│   └── M4L-Remote-Target/
+│       ├── M4L-Remote-Target.maxpat
+│       ├── README.md
+│       └── PARAMETER_NAMES.md
+├── 3_READ_ME_FIRST.md
+├── INSTALL_CHECK.command
+└── TROUBLESHOOTING.md`}</pre></div>
+}
+
+const SETUP_STEPS = [
+  ['download', 'Download ZIP', 'Keep the newest pack and discard older downloads with the same name.'],
+  ['unzip', 'Unzip pack', 'Open the archive before copying anything into Ableton.'],
+  ['copy', 'Copy only the Remote Script folder', 'Use the folder inside 1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS.'],
+  ['paste', 'Paste into the User Library', 'Destination: ~/Music/Ableton/User Library/Remote Scripts/'],
+  ['remove', 'Remove the old script if needed', 'Replace the whole folder; do not merge old and new files.'],
+  ['restart', 'Restart Ableton', 'Live discovers Remote Scripts only during startup.'],
+  ['surface', 'Select the generated Control Surface', 'Choose the exact script name shown below.'],
+  ['input', 'Select the MIDI Input', 'Use nanoKONTROL2 SLIDER/KNOB or the port captured in Step 1.'],
+  ['output', 'Set Output to None', 'The generated pack does not need a MIDI output port.'],
+  ['device', 'Load M4L-Remote-Target', 'The device name must match exactly, including hyphens.'],
+  ['cc16', 'Test CC16 / M4L Param 1', 'Knob 1 should move the first visible monitor.'],
+  ['cc45', 'Test CC45 / Capture MIDI', 'Capture triggers only when CC45 sends the full value 127.'],
+]
+
+function SetupWizard({ scriptSlug, inputName }) {
+  const [checked, setChecked] = useState(() => new Set(['download']))
+  const [copied, setCopied] = useState('')
+  const commands = useMemo(() => createTerminalCommands(scriptSlug), [scriptSlug])
+  const progress = Math.round((checked.size / SETUP_STEPS.length) * 100)
+  const stepTitles = {
+    remove: `Remove old ${scriptSlug} if needed`,
+    surface: `Select Control Surface: ${scriptSlug}`,
+    input: `Select Input: ${inputName}`,
+    output: 'Output: None',
+    device: 'Load M4L-Remote-Target device',
+  }
+
+  const toggleStep = (id) => {
+    setChecked((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const copyCommand = async (command, id) => {
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopied(id)
+      window.setTimeout(() => setCopied(''), 1600)
+    } catch {
+      setCopied('error')
+    }
+  }
+
+  return <section className="setup-wizard" aria-labelledby="setup-wizard-title">
+    <div className="wizard-heading">
+      <div><span className="panel-index">05</span><div><h2 id="setup-wizard-title">Setup Wizard</h2><p>Commission the pack in order. Tiny details matter here.</p></div></div>
+      <div className="wizard-progress"><span>{checked.size}/{SETUP_STEPS.length} COMPLETE</span><div><i style={{ width: `${progress}%` }} /></div></div>
+    </div>
+    <div className="wizard-config">
+      <div><small>CONTROL SURFACE</small><strong>{scriptSlug}</strong></div>
+      <div><small>INPUT</small><strong>{inputName}</strong></div>
+      <div><small>OUTPUT</small><strong>None</strong></div>
+    </div>
+    <div className="setup-grid">
+      {SETUP_STEPS.map(([id, title, help], index) => <button key={id} className={`setup-step ${checked.has(id) ? 'setup-step--done' : ''}`} onClick={() => toggleStep(id)}>
+        <span className="setup-check">{checked.has(id) ? '✓' : String(index + 1).padStart(2, '0')}</span>
+        <span><strong>{stepTitles[id] || title}</strong><small>{help}</small></span>
+      </button>)}
+    </div>
+    <div className="terminal-tools">
+      <div className="terminal-tools__heading"><span>MACOS TERMINAL TOOLS</span><small>Copy only when you need to clean or inspect an installation.</small></div>
+      {commands.map((item) => <div className="command-block" key={item.id}>
+        <div><span>{item.label}</span><button onClick={() => copyCommand(item.command, item.id)}>{copied === item.id ? 'COPIED ✓' : 'COPY'}</button></div>
+        <pre>{item.command}</pre>
+      </div>)}
+      {copied === 'error' && <p className="copy-error">Clipboard access failed. Select the command manually.</p>}
+    </div>
+  </section>
 }
 
 export default App

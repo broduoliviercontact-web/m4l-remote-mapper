@@ -8,31 +8,35 @@ Complete at least one mapping in M4L Remote Mapper and click **Download ZIP pack
 
 Quit Ableton Live before copying the script folder.
 
-Copy the folder inside `Remote Scripts/` to your User Library:
+Copy the script folder inside `1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/` to your User Library:
 
 - macOS: `~/Music/Ableton/User Library/Remote Scripts/`
 - Windows: `%USERPROFILE%\Documents\Ableton\User Library\Remote Scripts\`
 
-The folder must directly contain `__init__.py`, the generated `.py` script, and `profile.json`. Do not add another nesting level.
+For the demo, copy only `1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/M4L_Remote_Target_Remote/`. That folder must directly contain `__init__.py`, `M4L_Remote_Target_Remote.py`, and `profile.json`. Do not add another nesting level or copy the numbered parent folder.
 
-## 3. Build the Max for Live target
+Remove an older folder with the same name and any `__pycache__` before restarting Live. On macOS, double-click `INSTALL_CHECK.command` to verify the installed files and detect obsolete generator code.
 
-Open the exported `Max for Live/M4L_Remote_Target_*_Params_SPEC.md`.
+## 3. Open the Max for Live target
 
-1. Create a Max MIDI Effect or Max Audio Effect.
-2. Add the required `live.dial` and/or `live.toggle` objects.
-3. Set each object's **Long Name** to the exact name in the specification.
-4. Ensure each control is exposed to Live's parameter system.
-5. Save the device as an `.amxd` and name the loaded Live device exactly as specified.
+Open `2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/M4L-Remote-Target/M4L-Remote-Target.maxpat` in Max from a Max Audio Effect.
+
+1. Save the device in your Ableton User Library if Max asks you to do so.
+2. Load the resulting Max Audio Effect in Ableton.
+3. Verify that the loaded device is named exactly **M4L-Remote-Target**.
+4. Confirm that Live exposes `M4L Param 1` through `M4L Param 8`.
+
+The patch passes stereo audio through unchanged. Its parameter Long Names are already configured; do not rename them.
 
 ## 4. Activate in Live
 
 1. Restart Ableton Live.
 2. Open **Settings → Link, Tempo & MIDI**.
-3. Choose the generated script in a Control Surface slot.
-4. Choose the physical controller as that slot's Input.
-5. Add your Max for Live target to a track.
-6. Move a mapped controller and verify the response.
+3. Choose **M4L_Remote_Target_Remote** as Control Surface.
+4. Choose **nanoKONTROL2 SLIDER/KNOB** as Input.
+5. Choose **None** as Output.
+6. Add **M4L-Remote-Target** to a track.
+7. Move knobs 1–4 and verify that M4L Params 1–4 respond.
 
 ## Troubleshooting
 
@@ -41,3 +45,4 @@ Open the exported `Max for Live/M4L_Remote_Target_*_Params_SPEC.md`.
 - Confirm the loaded device name and every parameter Long Name.
 - If an exact parameter match fails, the script tries a normalized-name match and then the configured zero-based parameter index.
 - For Capture MIDI, confirm the mapping trigger. `value_eq_127` fires only for a full-value CC message and logs the request, success, or error.
+- Read the pack's `TROUBLESHOOTING.md` for exact fixes and a ready-to-copy Log.txt command.

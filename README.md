@@ -4,7 +4,7 @@
 
 M4L Remote Mapper is a browser-based React/Vite tool that captures MIDI Control Change messages, routes them to named Max for Live parameters or Ableton global actions, and exports an installable Remote Script pack as a ZIP.
 
-The v0.1 MVP is deliberately narrow: Max for Live parameters, Capture MIDI, Web MIDI capture, and Remote Script generation. It does not include an Ableton device catalogue, a backend, or `.amxd` generation.
+The v0.1 MVP is deliberately narrow: Max for Live parameters, Capture MIDI, Web MIDI capture, Remote Script generation, and a transparent Max Audio Effect template. It does not include an Ableton device catalogue or a backend.
 
 ## Run locally
 
@@ -32,16 +32,22 @@ npm run preview
 2. Move hardware controls to collect incoming CC messages.
 3. Define the Max for Live device name and its exposed parameter names.
 4. Route each MIDI source to an M4L parameter or to **Capture MIDI**.
-5. Download the generated ZIP and follow its `INSTALLATION.md`.
+5. Download the generated ZIP and follow `3_READ_ME_FIRST.md` or the in-app Setup Wizard.
 
-The **Load nanoKONTROL2 demo** button creates the validated profile: CC 16–19 control M4L Params 1–4, and CC 45 triggers Capture MIDI only when its value equals 127.
+The **Load nanoKONTROL2 demo** button targets the device **M4L-Remote-Target** and creates the validated profile: CC 16–19 on user channel 1 control M4L Params 1–4, and CC 45 triggers Capture MIDI only when its value equals 127.
+
+The downloaded pack includes `2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/M4L-Remote-Target/M4L-Remote-Target.maxpat`. Open it from a Max Audio Effect and save/load the device under the exact name **M4L-Remote-Target** so the Remote Script can resolve it.
+
+For the demo installation, copy only `1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/M4L_Remote_Target_Remote/` into `~/Music/Ableton/User Library/Remote Scripts/`, then restart Live. In **Settings → Link, Tempo & MIDI**, choose **M4L_Remote_Target_Remote** as Control Surface, **nanoKONTROL2 SLIDER/KNOB** as Input, and **None** as Output.
+
+After every download, the UI opens a Setup Wizard with a persistent checklist for the session and copy-ready cleanup/log commands. The **Generate Known-Good nanoKONTROL2 Test Pack** button bypasses custom mappings and exports the validated CC16/17/18/19 + CC45 profile. The ZIP also includes `INSTALL_CHECK.command` and `TROUBLESHOOTING.md`.
 
 ## Repository
 
 - `client/` — React/Vite browser app
 - `client/src/generators/remoteScriptGenerator.js` — deterministic Python/profile/docs generator
+- `maxforlive/templates/M4L-Remote-Target/` — transparent stereo Max Audio Effect template
 - `docs/ARCHITECTURE.md` — data flow and design decisions
 - `docs/ABLETON_INSTALLATION.md` — manual Ableton setup guide
 
 No MIDI data or mapping profile leaves the browser.
-
