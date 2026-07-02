@@ -1,21 +1,33 @@
-# Ableton installation
+# Install the generated pack in Ableton Live
+
+This guide starts after you export a ZIP from M4L Remote Mapper. The browser cannot install a Remote Script for you: one folder must be copied manually, then Live must be restarted.
 
 ## 1. Export the pack
 
-Complete at least one mapping in M4L Remote Mapper and click **Download ZIP pack**. Unzip `M4L_Remote_Mapper_Pack`.
+Complete at least one mapping in M4L Remote Mapper and click **Download ZIP pack**. Unzip the downloaded archive. If you are validating the workflow for the first time, generate the known-good nanoKONTROL2 test pack.
 
 ## 2. Install the Remote Script
 
 Quit Ableton Live before copying the script folder.
 
-Copy the script folder inside `1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/` to your User Library:
+Copy only the generated script folder inside `1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/` to your User Library:
 
 - macOS: `~/Music/Ableton/User Library/Remote Scripts/`
 - Windows: `%USERPROFILE%\Documents\Ableton\User Library\Remote Scripts\`
 
-For the demo, copy only `1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/M4L_Remote_Target_Remote/`. That folder must directly contain `__init__.py`, `M4L_Remote_Target_Remote.py`, and `profile.json`. Do not add another nesting level or copy the numbered parent folder.
+For the demo, copy only `1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/M4L_Remote_Target_Remote/`. Do not copy the whole ZIP or the numbered parent folder.
 
-Remove an older folder with the same name and any `__pycache__` before restarting Live. On macOS, double-click `INSTALL_CHECK.command` to verify the installed files and detect obsolete generator code.
+The final layout must be:
+
+```text
+~/Music/Ableton/User Library/Remote Scripts/
+└── M4L_Remote_Target_Remote/
+    ├── __init__.py
+    ├── M4L_Remote_Target_Remote.py
+    └── profile.json
+```
+
+Remove an older folder with the same name and any `__pycache__` before restarting Live. On macOS, double-click `INSTALL_CHECK.command` from the pack. If macOS blocks the first launch, right-click it, choose **Open**, then confirm. The checker reports problems without modifying the installation.
 
 ## 3. Open the Max for Live target
 
@@ -26,18 +38,19 @@ Open `2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/M4L-Remote-Target/M4L-Remote-Target.maxpat
 3. Verify that the loaded device is named exactly **M4L-Remote-Target**.
 4. Confirm that Live exposes `M4L Param 1` through `M4L Param 8` and `M4L Button 1` through `M4L Button 8`.
 
-The patch passes stereo audio through unchanged. Its parameter Long Names are already configured; do not rename them.
+The patch passes stereo audio through unchanged. Its parameter Long Names are already configured; do not rename them. See [Max for Live target](MAX_FOR_LIVE_TARGET.md) when adapting the template.
 
 ## 4. Activate in Live
 
 1. Restart Ableton Live.
 2. Open **Settings → Link, Tempo & MIDI**.
 3. Choose **M4L_Remote_Target_Remote** as Control Surface.
-4. Choose **nanoKONTROL2 SLIDER/KNOB** as Input.
+4. Choose your controller port as Input. For the demo, use **nanoKONTROL2 SLIDER/KNOB**.
 5. Choose **None** as Output.
 6. Add **M4L-Remote-Target** to a track.
 7. Move knobs 1–4 and verify that M4L Params 1–4 respond.
 8. Press CC32/33 to test script-side toggles and CC34/35 to test momentary buttons.
+9. Send CC45 at value 127 to test Capture MIDI after a MIDI track has received playable input.
 
 ## Button modes and ranges
 
@@ -53,6 +66,6 @@ MIDI sends `0–127`, but Ableton parameters may use any range. Continuous mappi
 - Open Live's log and look for `M4L Remote Mapper: loaded`.
 - Compare the controller channel/CC with `profile.json`.
 - Confirm the loaded device name and every parameter Long Name.
-- If an exact parameter match fails, the script tries a normalized-name match and then the configured zero-based parameter index.
+- If an exact parameter match fails, the script tries normalized aliases. It uses a zero-based parameter index only when that mapping explicitly enables the Advanced fallback option.
 - For Capture MIDI, confirm the mapping trigger. `value_eq_127` fires only for a full-value CC message and logs the request, success, or error.
-- Read the pack's `TROUBLESHOOTING.md` for exact fixes and a ready-to-copy Log.txt command.
+- Read the pack's `TROUBLESHOOTING.md` or the repository's [troubleshooting guide](TROUBLESHOOTING.md) for exact fixes and ready-to-copy Log.txt commands.

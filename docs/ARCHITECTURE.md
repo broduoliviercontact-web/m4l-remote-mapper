@@ -49,7 +49,7 @@ Index fallback is an explicit per-mapping opt-in (`allowIndexFallback`, serializ
 
 Each parameter mapping serializes `parameter_aliases`: complete Long Name, compact Short Name, and Max Scripting Name. Exact and normalized alias matching both call the Param/Button compatibility guard. A deterministic profile hash becomes the Python `BUILD_ID`; `_log` prefers `c_instance().log_message`, so Log.txt identifies the loaded build before falling back to the canonical parent or status bar.
 
-The only v0.1 global action is Capture MIDI. Its trigger guard is generated from the mapping profile; `value_eq_127` cannot call `self.song().capture_midi()` for any other value.
+The currently supported global action is Capture MIDI. Its trigger guard is generated from the mapping profile; `value_eq_127` cannot call `self.song().capture_midi()` for any other value.
 
 ## ZIP boundary
 
@@ -59,6 +59,6 @@ The pack uses numbered, action-oriented folders: `1_COPY_THIS_FOLDER_TO_REMOTE_S
 
 ## Compatibility notes
 
-- Web MIDI availability depends on the browser; current Chromium-family browsers are the intended v0.1 target.
+- Web MIDI availability depends on the browser; current Chromium-family browsers are the intended target.
 - Ableton's Python Remote Script API is not a stable public API. Generated scripts should be verified against the target Live version.
 - A compiled `.amxd` is not generated, but the exported `.maxpat` opens directly from a Max Audio Effect and already exposes the eight required Long Names.
