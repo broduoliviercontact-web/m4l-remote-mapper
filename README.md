@@ -38,6 +38,12 @@ The **Load nanoKONTROL2 full demo** button targets **M4L-Remote-Target** and cre
 
 Mappings distinguish `continuous` controls from `button` controls. Continuous MIDI values are normalized from 0–127 and scaled to the target parameter's own minimum/maximum. Buttons support `momentary`, `toggle_from_input`, `toggle_in_script`, and `trigger` modes and write only the target minimum or maximum.
 
+Slot names come from one central naming rule: the trimmed prefix, one space, then the one-based number. For example, `M4L-Param` becomes `M4L-Param 1`, never `M4L-Param-1`; the exported profile, Python script, documentation, and customized `.maxpat` all use that same result.
+
+Mappings resolve by name only by default. Optional index fallback must be enabled per mapping in Advanced and rejects incompatible targets, preventing a continuous mapping from landing on a button when Max exposes parameters in an unexpected order.
+
+The bundled patch gives every parameter identical complete Long and Short Names. Generated mappings also include compact and Scripting Name aliases, and every script embeds a deterministic `BUILD_ID` logged at startup so stale Ableton caches are immediately visible.
+
 The downloaded pack includes `2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/M4L-Remote-Target/M4L-Remote-Target.maxpat`. Open it from a Max Audio Effect and save/load the device under the exact name **M4L-Remote-Target** so the Remote Script can resolve it.
 
 For the demo installation, copy only `1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/M4L_Remote_Target_Remote/` into `~/Music/Ableton/User Library/Remote Scripts/`, then restart Live. In **Settings → Link, Tempo & MIDI**, choose **M4L_Remote_Target_Remote** as Control Surface, **nanoKONTROL2 SLIDER/KNOB** as Input, and **None** as Output.

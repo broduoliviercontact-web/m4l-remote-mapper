@@ -9,10 +9,17 @@ import { createNanoKontrol2Demo, NANO_KONTROL2_TARGET } from '../client/src/demo
 import {
   buildRemoteMapperPack,
   createTerminalCommands,
+  customizeMaxForLiveTemplate,
   generateInstallCheck,
   generateTroubleshooting,
 } from '../client/src/generators/packGenerator.js'
 import { generateRemoteScriptFiles } from '../client/src/generators/remoteScriptGenerator.js'
+import {
+  buildM4LButtonName,
+  buildM4LParamName,
+  buildM4LSlotName,
+  normalizePrefix,
+} from '../client/src/utils/m4lNaming.js'
 
 const templateDirectory = path.join(process.cwd(), 'maxforlive/templates/M4L-Remote-Target')
 const templatePath = path.join(templateDirectory, 'M4L-Remote-Target.maxpat')
@@ -24,6 +31,18 @@ function generateCaptureScript() {
   return files[`${files.scriptSlug}.py`]
 }
 
+test('central naming always separates prefix and slot number with one space', () => {
+  assert.equal(normalizePrefix('  M4L Param  ', 'Fallback'), 'M4L Param')
+  assert.equal(normalizePrefix('', 'M4L Param'), 'M4L Param')
+  assert.equal(buildM4LSlotName('M4L-Param', 1), 'M4L-Param 1')
+  assert.equal(buildM4LParamName('M4L Param', 0), 'M4L Param 1')
+  assert.equal(buildM4LParamName('M4L-Param', 0), 'M4L-Param 1')
+  assert.equal(buildM4LButtonName('M4L Button', 0), 'M4L Button 1')
+  assert.equal(buildM4LButtonName('M4L-Button', 0), 'M4L-Button 1')
+  assert.notEqual(buildM4LParamName('M4L-Param', 0), 'M4L-Param-1')
+  assert.notEqual(buildM4LButtonName('M4L-Button', 0), 'M4L-Button')
+})
+
 test('Max for Live template exposes eight exact parameters and transparent stereo audio', async () => {
   const source = await readFile(templatePath, 'utf8')
   const maxpat = JSON.parse(source)
@@ -31,12 +50,16 @@ test('Max for Live template exposes eight exact parameters and transparent stere
   const dials = boxes.filter((box) => box.maxclass === 'live.dial')
   const buttons = boxes.filter((box) => box.maxclass === 'live.toggle')
   const longNames = dials.map((dial) => dial.saved_attribute_attributes.valueof.parameter_longname)
+  const shortNames = dials.map((dial) => dial.saved_attribute_attributes.valueof.parameter_shortname)
   const buttonLongNames = buttons.map((button) => button.saved_attribute_attributes.valueof.parameter_longname)
+  const buttonShortNames = buttons.map((button) => button.saved_attribute_attributes.valueof.parameter_shortname)
 
   assert.equal(dials.length, 8)
   assert.equal(buttons.length, 8)
   assert.deepEqual(longNames, Array.from({ length: 8 }, (_, index) => `M4L Param ${index + 1}`))
+  assert.deepEqual(shortNames, longNames)
   assert.deepEqual(buttonLongNames, Array.from({ length: 8 }, (_, index) => `M4L Button ${index + 1}`))
+  assert.deepEqual(buttonShortNames, buttonLongNames)
   assert.deepEqual(buttons.map((button) => button.varname), Array.from({ length: 8 }, (_, index) => `m4l_button_${index + 1}`))
   assert.ok(buttons.every((button) => button.parameter_enable === 1))
   assert.ok(dials.every((dial) => dial.parameter_enable === 1))
@@ -57,6 +80,8 @@ test('Max for Live template exposes eight exact parameters and transparent stere
   assert.ok(boxes.some((box) => box.text === 'Expected parameters: M4L Param 1 ... M4L Param 8'))
   assert.ok(boxes.some((box) => box.text === 'Remote Script target device name: M4L-Remote-Target'))
   assert.equal(boxes.filter((box) => box.maxclass === 'flonum' && box.presentation === 1).length, 4)
+  assert.doesNotMatch(source, /"parameter_longname": "M4L-Button"/)
+  assert.doesNotMatch(source, /M4L-Param-1/)
   assert.doesNotMatch(source, /S1|s1_param/i)
 })
 
@@ -69,6 +94,16 @@ test('Button Bank and all button modes are exposed in the UI', async () => {
   assert.match(appSource, /toggle_in_script/)
   assert.match(appSource, /Load nanoKONTROL2 full demo/)
   assert.match(appSource, /MIDI sends 0–127/)
+  assert.match(appSource, />Momentary</)
+  assert.match(appSource, />Input toggle</)
+  assert.match(appSource, />Script toggle</)
+  assert.match(appSource, />Trigger</)
+  assert.match(appSource, /Name match only/)
+  assert.match(appSource, /Index fallback enabled/)
+  assert.match(appSource, /Allow index fallback if name is missing/)
+  assert.match(appSource, /Recommended: keep disabled\. Name matching is safer for Max for Live devices\./)
+  assert.match(appSource, /Resolved by name first\. Fallback index is only used if the exact parameter name is not found\./)
+  assert.match(appSource, /<details className="advanced-index">/)
 })
 
 test('nanoKONTROL2 demo targets M4L-Remote-Target with the validated mappings', () => {
@@ -117,6 +152,51 @@ test('nanoKONTROL2 demo targets M4L-Remote-Target with the validated mappings', 
   assert.equal(profile.mappings.find((mapping) => mapping.source.data1 === 16).controlType, 'continuous')
   assert.equal(profile.mappings.find((mapping) => mapping.source.data1 === 32).controlType, 'button')
   assert.equal(profile.mappings.find((mapping) => mapping.source.data1 === 32).targetButtonName, 'M4L Button 1')
+  assert.equal(profile.mappings.find((mapping) => mapping.source.data1 === 32).parameterIndex, 8)
+  assert.deepEqual(profile.mappings.find((mapping) => mapping.source.data1 === 16).parameter_aliases, ['M4L Param 1', 'Param 1', 'm4l_param_1'])
+  assert.deepEqual(profile.mappings.find((mapping) => mapping.source.data1 === 32).parameter_aliases, ['M4L Button 1', 'Button 1', 'm4l_button_1'])
+  assert.ok(profile.mappings.every((mapping) => mapping.allowIndexFallback === false))
+})
+
+test('custom prefixes and compact fallback indices stay aligned across profile, script and maxpat', async () => {
+  const target = {
+    targetDeviceName: 'M4L-Remote-Target',
+    parameterCount: 2,
+    parameterPrefix: 'M4L-Param',
+    buttonCount: 1,
+    buttonPrefix: 'M4L-Button',
+  }
+  const source = (cc, label, controlKind) => ({
+    id: `test-0-${cc}`, endpointName: 'Test', messageType: 'CONTROLCHANGE',
+    userChannel: 1, frameworkChannel: 0, data1: cc, lastValue: 0, label, controlKind,
+  })
+  const mappings = [
+    { id: 'p1', source: source(0, 'Param 1', 'knob'), controlType: 'continuous', targetType: 'm4l_parameter', targetDeviceName: target.targetDeviceName, targetParameterName: buildM4LParamName(target.parameterPrefix, 0), parameterIndex: '', scaling: 'parameter_min_max' },
+    { id: 'p2', source: source(16, 'Param 2', 'knob'), controlType: 'continuous', targetType: 'm4l_parameter', targetDeviceName: target.targetDeviceName, targetParameterName: buildM4LParamName(target.parameterPrefix, 1), parameterIndex: '', scaling: 'parameter_min_max' },
+    { id: 'b1', source: source(45, 'Button 1', 'button'), controlType: 'button', targetType: 'm4l_button', targetDeviceName: target.targetDeviceName, targetButtonName: buildM4LButtonName(target.buttonPrefix, 0), parameterIndex: '', buttonMode: 'momentary' },
+  ]
+  const files = generateRemoteScriptFiles({ target, mappings })
+  const profile = JSON.parse(files['profile.json'])
+  const script = files[`${files.scriptSlug}.py`]
+  const customizedPatch = customizeMaxForLiveTemplate(await readFile(templatePath, 'utf8'), target)
+  const patch = JSON.parse(customizedPatch)
+  const boxes = patch.patcher.boxes.map(({ box }) => box)
+
+  assert.deepEqual(profile.mappings.map((mapping) => mapping.parameterIndex), [0, 1, 2])
+  assert.ok(profile.mappings.every((mapping) => mapping.allowIndexFallback === false))
+  assert.match(script, /"parameter": "M4L-Param 1".*"parameter_index": 0/)
+  assert.match(script, /"expected_kind": "parameter".*"expected_prefix": "M4L-Param".*"allow_index_fallback": False/)
+  assert.match(script, /"parameter_aliases": \["M4L-Param 1","Param 1","m4l_param_1"\]/)
+  assert.match(script, /"parameter": "M4L-Param 2".*"parameter_index": 1/)
+  assert.match(script, /"parameter": "M4L-Button 1".*"parameter_index": 2/)
+  assert.match(script, /"expected_kind": "button".*"expected_prefix": "M4L-Button".*"allow_index_fallback": False/)
+  assert.match(script, /"parameter_aliases": \["M4L-Button 1","Button 1","m4l_button_1"\]/)
+  assert.deepEqual(boxes.filter((box) => box.maxclass === 'live.dial').map((box) => box.saved_attribute_attributes.valueof.parameter_longname), ['M4L-Param 1', 'M4L-Param 2'])
+  assert.deepEqual(boxes.filter((box) => box.maxclass === 'live.dial').map((box) => box.saved_attribute_attributes.valueof.parameter_shortname), ['M4L-Param 1', 'M4L-Param 2'])
+  assert.deepEqual(boxes.filter((box) => box.maxclass === 'live.toggle').map((box) => box.saved_attribute_attributes.valueof.parameter_longname), ['M4L-Button 1'])
+  assert.deepEqual(boxes.filter((box) => box.maxclass === 'live.toggle').map((box) => box.saved_attribute_attributes.valueof.parameter_shortname), ['M4L-Button 1'])
+  assert.doesNotMatch(customizedPatch, /M4L-Param-1/)
+  assert.doesNotMatch(customizedPatch, /"parameter_longname": "M4L-Button"/)
 })
 
 test('generated Live 12 Remote Script uses the safe logging helper', () => {
@@ -125,7 +205,10 @@ test('generated Live 12 Remote Script uses the safe logging helper', () => {
   assert.doesNotMatch(script, /self\.log_message\(/)
   assert.match(script, /def _log\(self, message\):/)
   assert.match(script, /self\._log\(/)
-  assert.match(script, /self\.canonical_parent\.log_message\(message\)/)
+  assert.match(script, /self\.c_instance\(\)\.log_message\(text\)/)
+  assert.match(script, /self\.canonical_parent\.log_message\(text\)/)
+  assert.match(script, /BUILD_ID = "v01-[0-9a-f]{8}"/)
+  assert.match(script, /script loaded build_id=\{\}/)
   assert.match(script, /from _Framework\.ControlSurface import ControlSurface/)
   assert.match(script, /def _setup_mappings\(self\):/)
 })
@@ -180,21 +263,31 @@ test('generated Remote Script scales MIDI through parameter min and max', () => 
 test('generated Remote Script logs CC, device and parameter resolution', () => {
   const script = generateCaptureScript()
 
-  assert.match(script, /M4L Remote Mapper: script loaded/)
+  assert.match(script, /script loaded build_id=\{\}/)
   assert.match(script, /CC received channel=\{\} cc=\{\} value=\{\}/)
   assert.match(script, /target device found: \{\}/)
   assert.match(script, /target device missing: \{\}/)
   assert.match(script, /parameter found: \{\}/)
-  assert.match(script, /parameter missing: \{\}/)
+  assert.match(script, /parameter missing by aliases: \{\}/)
+  assert.match(script, /available parameters: \{\}/)
+  assert.match(script, /", "\.join\(\[parameter\.name for parameter in target_device\.parameters\]\)/)
   assert.match(script, /listening CC channel=\{\} cc=\{\}/)
 })
 
 test('parameter index fallback excludes Live Device On', () => {
   const script = generateCaptureScript()
 
+  assert.match(script, /mapping\.get\("allow_index_fallback"\) is not True/)
+  assert.match(script, /index fallback disabled for \{\}/)
   assert.match(script, /automatable_parameters = \[parameter for parameter in target_device\.parameters if parameter\.name != "Device On"\]/)
-  assert.match(script, /0 <= index < len\(automatable_parameters\)/)
-  assert.match(script, /return automatable_parameters\[index\]/)
+  assert.match(script, /fallback_parameter = automatable_parameters\[index\]/)
+  assert.match(script, /unsafe fallback rejected:/)
+  assert.match(script, /safe fallback accepted:/)
+  assert.match(script, /def _is_safe_fallback\(self, mapping, parameter\):/)
+  assert.match(script, /def _is_parameter_compatible_with_mapping\(self, mapping, parameter\):/)
+  assert.match(script, /if expected_kind == "parameter":\n\s+return "button" not in parameter_name/)
+  assert.match(script, /if expected_kind == "button":\n\s+return "button" in parameter_name/)
+  assert.match(script, /aliases = mapping\.get\("parameter_aliases", \[exact_name\]\)/)
   assert.doesNotMatch(script, /return target_device\.parameters\[index\]/)
 })
 
@@ -230,6 +323,96 @@ test('generated Remote Script compiles with Python', async (context) => {
   assert.equal(result.status, 0, result.stderr || result.stdout)
 })
 
+test('generated Python fallback is opt-in and rejects cross-kind parameter order', async (context) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'm4l-safe-fallback-'))
+  context.after(() => rm(directory, { recursive: true, force: true }))
+  const scriptPath = path.join(directory, 'M4L_Remote_Target_Remote.py')
+  const harnessPath = path.join(directory, 'fallback_harness.py')
+  await writeFile(scriptPath, generateCaptureScript(), 'utf8')
+  const harness = `import importlib.util
+import sys
+import types
+
+live_module = types.ModuleType("Live")
+live_module.MidiMap = types.SimpleNamespace(MapMode=types.SimpleNamespace(absolute=0))
+sys.modules["Live"] = live_module
+
+framework = types.ModuleType("_Framework")
+control_surface_module = types.ModuleType("_Framework.ControlSurface")
+input_module = types.ModuleType("_Framework.InputControlElement")
+encoder_module = types.ModuleType("_Framework.EncoderElement")
+control_surface_module.ControlSurface = type("ControlSurface", (), {})
+input_module.MIDI_CC_TYPE = 0
+encoder_module.EncoderElement = type("EncoderElement", (), {})
+sys.modules["_Framework"] = framework
+sys.modules["_Framework.ControlSurface"] = control_surface_module
+sys.modules["_Framework.InputControlElement"] = input_module
+sys.modules["_Framework.EncoderElement"] = encoder_module
+
+spec = importlib.util.spec_from_file_location("generated", ${JSON.stringify(scriptPath)})
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+surface = object.__new__(module.M4L_Remote_Target_Remote)
+logs = []
+surface._log = logs.append
+
+class Parameter:
+    def __init__(self, name):
+        self.name = name
+
+device_on = Parameter("Device On")
+button = Parameter("Button 1")
+continuous = Parameter("Param 1")
+device = types.SimpleNamespace(parameters=[device_on, button, continuous])
+surface.song = lambda: types.SimpleNamespace(tracks=[types.SimpleNamespace(devices=[])], return_tracks=[])
+surface._find_device_in_chain = lambda devices, target: device
+
+def mapping(kind, index, allow):
+    return {
+        "device": "M4L-Remote-Target",
+        "parameter": "Missing Target",
+        "expected_kind": kind,
+        "expected_prefix": "M4L Param" if kind == "parameter" else "M4L Button",
+        "allow_index_fallback": allow,
+        "parameter_index": index,
+    }
+
+continuous_alias_mapping = mapping("parameter", 0, False)
+continuous_alias_mapping["parameter_aliases"] = ["M4L Param 1", "Param 1", "m4l_param_1"]
+assert surface._find_parameter(continuous_alias_mapping) is continuous
+button_alias_mapping = mapping("button", 0, False)
+button_alias_mapping["parameter_aliases"] = ["M4L Button 1", "Button 1", "m4l_button_1"]
+assert surface._find_parameter(button_alias_mapping) is button
+wrong_continuous_alias = mapping("parameter", 0, False)
+wrong_continuous_alias["parameter_aliases"] = ["Button 1"]
+assert surface._find_parameter(wrong_continuous_alias) is None
+wrong_button_alias = mapping("button", 1, False)
+wrong_button_alias["parameter_aliases"] = ["Param 1"]
+assert surface._find_parameter(wrong_button_alias) is None
+
+assert surface._find_parameter(mapping("parameter", 1, False)) is None
+assert any("index fallback disabled" in message for message in logs)
+logs[:] = []
+assert surface._find_parameter(mapping("parameter", 0, True)) is None
+assert any("unsafe fallback rejected" in message and "Button 1" in message for message in logs)
+logs[:] = []
+assert surface._find_parameter(mapping("button", 1, True)) is None
+assert any("unsafe fallback rejected" in message and "Param 1" in message for message in logs)
+logs[:] = []
+assert surface._find_parameter(mapping("parameter", 1, True)) is continuous
+assert any("safe fallback accepted" in message for message in logs)
+logs[:] = []
+assert surface._find_parameter(mapping("button", 0, True)) is button
+assert any("safe fallback accepted" in message for message in logs)
+print("safe fallback behavior: OK")
+`
+  await writeFile(harnessPath, harness, 'utf8')
+
+  const result = spawnSync('python3', [harnessPath], { encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  assert.match(result.stdout, /safe fallback behavior: OK/)
+})
+
 test('installation helpers diagnose stale scripts and produce slug-aware commands', () => {
   const scriptSlug = 'M4L_Remote_Target_Remote'
   const installCheck = generateInstallCheck(scriptSlug)
@@ -241,12 +424,18 @@ test('installation helpers diagnose stale scripts and produce slug-aware command
 
   assert.match(installCheck, /EncoderElement/)
   assert.match(installCheck, /add_value_listener/)
+  assert.match(installCheck, /BUILD_ID/)
+  assert.match(installCheck, /parameter_aliases/)
+  assert.match(installCheck, /allow_index_fallback.*False/)
   assert.match(installCheck, /self\.log_message\(/)
   assert.match(installCheck, /def receive_midi\(/)
   assert.match(installCheck, /__pycache__/)
   assert.match(troubleshooting, /target device missing/)
   assert.match(troubleshooting, /parameter missing/)
   assert.match(troubleshooting, /Capture MIDI/)
+  assert.match(troubleshooting, /Slider still controls a button/)
+  assert.match(troubleshooting, /build_id/)
+  assert.match(troubleshooting, /index fallback/)
   assert.match(troubleshooting, /self\.log_message/)
   assert.equal(commands.length, 3)
   assert.ok(commands.every(({ command }) => command.includes(scriptSlug) || command.includes('Log.txt')))
@@ -276,11 +465,11 @@ test('INSTALL_CHECK.command accepts a current script and rejects self.log_messag
     env: { ...process.env, HOME: home },
   })
 
-  await writeFile(pythonPath, 'from _Framework.EncoderElement import EncoderElement\ncontrol.add_value_listener(listener)\n', 'utf8')
+  await writeFile(pythonPath, 'from _Framework.EncoderElement import EncoderElement\ncontrol.add_value_listener(listener)\nBUILD_ID = "test"\nparameter_aliases = []\nmapping = {"allow_index_fallback": False}\n', 'utf8')
   const currentResult = runCheck()
   assert.equal(currentResult.status, 0, currentResult.stdout || currentResult.stderr)
 
-  await writeFile(pythonPath, 'EncoderElement\nadd_value_listener\nself.log_message("old")\n', 'utf8')
+  await writeFile(pythonPath, 'EncoderElement\nadd_value_listener\nBUILD_ID\nparameter_aliases\n"allow_index_fallback": False\nself.log_message("old")\n', 'utf8')
   const staleResult = runCheck()
   assert.notEqual(staleResult.status, 0)
   assert.match(staleResult.stdout, /Unsafe self\.log_message call found/)
@@ -312,7 +501,9 @@ test('export pack uses the guided structure and includes support files', async (
   }
 
   const exportedPatch = await zip.file(`${root}2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/M4L-Remote-Target/M4L-Remote-Target.maxpat`).async('string')
-  assert.equal(exportedPatch, templates.maxpat)
+  const exportedBoxes = JSON.parse(exportedPatch).patcher.boxes.map(({ box }) => box)
+  assert.deepEqual(exportedBoxes.filter((box) => box.maxclass === 'live.dial').map((box) => box.saved_attribute_attributes.valueof.parameter_longname), Array.from({ length: 8 }, (_, index) => `M4L Param ${index + 1}`))
+  assert.deepEqual(exportedBoxes.filter((box) => box.maxclass === 'live.toggle').map((box) => box.saved_attribute_attributes.valueof.parameter_longname), Array.from({ length: 8 }, (_, index) => `M4L Button ${index + 1}`))
 
   const installCheck = await zip.file(`${root}INSTALL_CHECK.command`).async('string')
   const troubleshooting = await zip.file(`${root}TROUBLESHOOTING.md`).async('string')
@@ -325,6 +516,7 @@ test('export pack uses the guided structure and includes support files', async (
   assert.match(troubleshooting, /parameter missing/)
   assert.match(troubleshooting, /Capture MIDI/)
   assert.match(troubleshooting, /toggle_in_script/)
+  assert.match(troubleshooting, /Slider still controls a button/)
   assert.match(readMeFirst, /Continuous controls/)
   assert.match(readMeFirst, /Button controls/)
   assert.match(parameterNames, /M4L Button 8/)

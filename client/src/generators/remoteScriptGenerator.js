@@ -1,3 +1,9 @@
+import {
+  buildM4LButtonName,
+  buildM4LParamName,
+  normalizePrefix,
+} from '../utils/m4lNaming.js'
+
 const normalizeSlug = (value) => {
   const slug = value
     .normalize('NFKD')
@@ -9,36 +15,81 @@ const normalizeSlug = (value) => {
 }
 
 const pyString = (value) => JSON.stringify(String(value))
+const pyBoolean = (value) => value === true ? 'True' : 'False'
+
+const unique = (values) => [...new Set(values)]
+
+function getMappingSlotNumber(mapping, target) {
+  if (mapping.targetType === 'm4l_button') {
+    const index = generateButtonNames(target).indexOf(mapping.targetButtonName)
+    return Math.max(0, index) + 1
+  }
+  const index = generateParameterNames(target).indexOf(mapping.targetParameterName)
+  return Math.max(0, index) + 1
+}
+
+function getParameterAliases(mapping, target) {
+  const slotNumber = getMappingSlotNumber(mapping, target)
+  if (mapping.targetType === 'm4l_button') {
+    return unique([mapping.targetButtonName, `Button ${slotNumber}`, `m4l_button_${slotNumber}`])
+  }
+  return unique([mapping.targetParameterName, `Param ${slotNumber}`, `m4l_param_${slotNumber}`])
+}
+
+function createBuildId(profile) {
+  const source = JSON.stringify(profile)
+  let hash = 2166136261
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `v01-${(hash >>> 0).toString(16).padStart(8, '0')}`
+}
 
 export const createScriptSlug = (deviceName) => `${normalizeSlug(deviceName)}_Remote`
 
 export function generateParameterNames({ parameterCount, parameterPrefix }) {
+  const prefix = normalizePrefix(parameterPrefix, 'M4L Param')
   return Array.from(
     { length: Math.max(1, Number(parameterCount) || 1) },
-    (_, index) => `${parameterPrefix || 'M4L Param'} ${index + 1}`,
+    (_, index) => buildM4LParamName(prefix, index),
   )
 }
 
 export function generateButtonNames({ buttonCount = 8, buttonPrefix = 'M4L Button' }) {
+  const prefix = normalizePrefix(buttonPrefix, 'M4L Button')
   return Array.from(
     { length: Math.max(1, Number(buttonCount) || 1) },
-    (_, index) => `${buttonPrefix || 'M4L Button'} ${index + 1}`,
+    (_, index) => buildM4LButtonName(prefix, index),
   )
 }
 
-function buildPythonMappings(mappings) {
+export function resolveMappingParameterIndex(mapping, target) {
+  if (mapping.targetType === 'global_action') return null
+  if (mapping.parameterIndex !== '' && mapping.parameterIndex != null) {
+    return Number(mapping.parameterIndex)
+  }
+  if (mapping.targetType === 'm4l_button') {
+    const buttonIndex = generateButtonNames(target).indexOf(mapping.targetButtonName)
+    return Math.max(0, Number(target.parameterCount) || 0) + Math.max(0, buttonIndex)
+  }
+  return Math.max(0, generateParameterNames(target).indexOf(mapping.targetParameterName))
+}
+
+function buildPythonMappings(mappings, target) {
+  const parameterPrefix = normalizePrefix(target.parameterPrefix, 'M4L Param')
+  const buttonPrefix = normalizePrefix(target.buttonPrefix, 'M4L Button')
   const rows = mappings.map((mapping) => {
     const source = mapping.source
     if (mapping.targetType === 'global_action') {
       return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "control_type": "button", "type": "global_action", "action": ${pyString(mapping.actionName)}, "button_mode": ${pyString(mapping.buttonMode || 'trigger')}, "trigger": ${pyString(mapping.triggerMode)}}`
     }
     if (mapping.targetType === 'm4l_button') {
-      return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "control_type": "button", "type": "m4l_button", "device": ${pyString(mapping.targetDeviceName)}, "parameter": ${pyString(mapping.targetButtonName)}, "button_mode": ${pyString(mapping.buttonMode || 'momentary')}, "button_id": ${pyString(`${source.frameworkChannel}:${source.data1}`)}, "parameter_index": None}`
+      const buttonIndex = resolveMappingParameterIndex(mapping, target)
+      return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "control_type": "button", "type": "m4l_button", "device": ${pyString(mapping.targetDeviceName)}, "parameter": ${pyString(mapping.targetButtonName)}, "parameter_aliases": ${JSON.stringify(getParameterAliases(mapping, target))}, "expected_kind": "button", "expected_prefix": ${pyString(buttonPrefix)}, "allow_index_fallback": ${pyBoolean(mapping.allowIndexFallback)}, "button_mode": ${pyString(mapping.buttonMode || 'momentary')}, "button_id": ${pyString(`${source.frameworkChannel}:${source.data1}`)}, "parameter_index": ${buttonIndex}}`
     }
-    const parameterIndex = mapping.parameterIndex === '' || mapping.parameterIndex == null
-      ? 'None'
-      : Number(mapping.parameterIndex)
-    return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "control_type": "continuous", "type": "m4l_parameter", "device": ${pyString(mapping.targetDeviceName)}, "parameter": ${pyString(mapping.targetParameterName)}, "scaling": "parameter_min_max", "parameter_index": ${parameterIndex}}`
+    const parameterIndex = resolveMappingParameterIndex(mapping, target)
+    return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "control_type": "continuous", "type": "m4l_parameter", "device": ${pyString(mapping.targetDeviceName)}, "parameter": ${pyString(mapping.targetParameterName)}, "parameter_aliases": ${JSON.stringify(getParameterAliases(mapping, target))}, "expected_kind": "parameter", "expected_prefix": ${pyString(parameterPrefix)}, "allow_index_fallback": ${pyBoolean(mapping.allowIndexFallback)}, "scaling": "parameter_min_max", "parameter_index": ${parameterIndex}}`
   })
   return rows.length ? `${rows.join(',\n')}\n` : ''
 }
@@ -52,6 +103,7 @@ export function generateRemoteScriptFiles({ target, mappings, scriptSlug = creat
       source: mapping.source,
       controlType: mapping.controlType || (mapping.targetType === 'm4l_parameter' ? 'continuous' : 'button'),
       targetType: mapping.targetType,
+      allowIndexFallback: mapping.allowIndexFallback === true,
       ...(mapping.targetType === 'global_action'
         ? {
             actionName: mapping.actionName,
@@ -62,18 +114,22 @@ export function generateRemoteScriptFiles({ target, mappings, scriptSlug = creat
           ? {
               targetDeviceName: mapping.targetDeviceName,
               targetButtonName: mapping.targetButtonName,
+              parameter_aliases: getParameterAliases(mapping, target),
               buttonMode: mapping.buttonMode || 'momentary',
+              parameterIndex: resolveMappingParameterIndex(mapping, target),
             }
           : {
             targetDeviceName: mapping.targetDeviceName,
             targetParameterName: mapping.targetParameterName,
+            parameter_aliases: getParameterAliases(mapping, target),
             scaling: mapping.scaling || 'parameter_min_max',
-            parameterIndex: mapping.parameterIndex === '' ? null : mapping.parameterIndex,
+            parameterIndex: resolveMappingParameterIndex(mapping, target),
           }),
     })),
   }
 
   const initPy = `from .${scriptSlug} import ${scriptSlug}\n\n\ndef create_instance(c_instance):\n    return ${scriptSlug}(c_instance)\n`
+  const buildId = createBuildId(profile)
 
   const scriptPy = `# Generated by M4L Remote Mapper v0.1
 import Live
@@ -83,23 +139,32 @@ from _Framework.EncoderElement import EncoderElement
 
 
 class ${scriptSlug}(ControlSurface):
+    BUILD_ID = ${pyString(buildId)}
     MAPPINGS = [
-${buildPythonMappings(mappings)}    ]
+${buildPythonMappings(mappings, target)}    ]
 
     def __init__(self, c_instance):
         super(${scriptSlug}, self).__init__(c_instance)
         with self.component_guard():
-            self._log("M4L Remote Mapper: script loaded")
+            self._log("script loaded build_id={}".format(self.BUILD_ID))
             self._setup_mappings()
 
     def _log(self, message):
+        text = "(M4L Remote Mapper) {}".format(message)
         try:
-            self.canonical_parent.log_message(message)
+            self.c_instance().log_message(text)
+            return
         except Exception:
-            try:
-                self.show_message(message)
-            except Exception:
-                pass
+            pass
+        try:
+            self.canonical_parent.log_message(text)
+            return
+        except Exception:
+            pass
+        try:
+            self.show_message(text)
+        except Exception:
+            pass
 
     def _setup_mappings(self):
         self._mappings = list(self.MAPPINGS)
@@ -193,24 +258,58 @@ ${buildPythonMappings(mappings)}    ]
         self._log("target device found: {}".format(mapping["device"]))
 
         exact_name = mapping["parameter"]
+        aliases = mapping.get("parameter_aliases", [exact_name])
+        for alias in aliases:
+            for parameter in target_device.parameters:
+                if parameter.name == alias and self._is_parameter_compatible_with_mapping(mapping, parameter):
+                    self._log("parameter found: {} alias={}".format(parameter.name, alias))
+                    return parameter
+
+        normalized_aliases = [self._normalize_name(alias) for alias in aliases]
         for parameter in target_device.parameters:
-            if parameter.name == exact_name:
-                self._log("parameter found: {}".format(exact_name))
+            if self._normalize_name(parameter.name) in normalized_aliases and self._is_parameter_compatible_with_mapping(mapping, parameter):
+                self._log("parameter found normalized: {}".format(parameter.name))
                 return parameter
 
-        normalized_name = self._normalize_name(exact_name)
-        for parameter in target_device.parameters:
-            if self._normalize_name(parameter.name) == normalized_name:
-                self._log("parameter found: {}".format(exact_name))
-                return parameter
+        self._log("parameter missing by aliases: {}".format(aliases))
+        self._log("available parameters: {}".format(", ".join([parameter.name for parameter in target_device.parameters])))
+        if mapping.get("allow_index_fallback") is not True:
+            self._log("index fallback disabled for {}".format(exact_name))
+            return None
 
         automatable_parameters = [parameter for parameter in target_device.parameters if parameter.name != "Device On"]
         index = mapping.get("parameter_index")
-        if index is not None and 0 <= index < len(automatable_parameters):
-            self._log("parameter found: {}".format(exact_name))
-            return automatable_parameters[index]
-        self._log("parameter missing: {}".format(exact_name))
-        return None
+        if index is None or index < 0 or index >= len(automatable_parameters):
+            self._log("unsafe fallback rejected: target={} index={} resolved=out_of_range".format(exact_name, index))
+            return None
+        fallback_parameter = automatable_parameters[index]
+        if not self._is_safe_fallback(mapping, fallback_parameter):
+            self._log("unsafe fallback rejected: target={} index={} resolved={}".format(exact_name, index, fallback_parameter.name))
+            return None
+        self._log("safe fallback accepted: target={} index={} resolved={}".format(exact_name, index, fallback_parameter.name))
+        return fallback_parameter
+
+    def _is_safe_fallback(self, mapping, parameter):
+        if not self._is_parameter_compatible_with_mapping(mapping, parameter):
+            return False
+        parameter_name = self._normalize_name(parameter.name)
+        expected_prefix = self._normalize_name(mapping.get("expected_prefix", ""))
+        prefix_matches = bool(expected_prefix) and parameter_name.startswith(expected_prefix)
+        expected_kind = mapping.get("expected_kind")
+        if expected_kind == "parameter":
+            return "button" not in parameter_name and ("param" in parameter_name or prefix_matches)
+        if expected_kind == "button":
+            return "param" not in parameter_name and ("button" in parameter_name or prefix_matches)
+        return False
+
+    def _is_parameter_compatible_with_mapping(self, mapping, parameter):
+        parameter_name = self._normalize_name(parameter.name)
+        expected_kind = mapping.get("expected_kind")
+        if expected_kind == "parameter":
+            return "button" not in parameter_name
+        if expected_kind == "button":
+            return "button" in parameter_name
+        return False
 
     def _find_device_in_chain(self, devices, target_name):
         normalized_target = self._normalize_name(target_name)

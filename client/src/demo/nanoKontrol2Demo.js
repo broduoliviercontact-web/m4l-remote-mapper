@@ -33,6 +33,8 @@ export function createNanoKontrol2Demo() {
     targetDeviceName: target.targetDeviceName,
     targetParameterName: parameterNames[index],
     parameterIndex: index,
+    parameterIndexMode: 'auto',
+    allowIndexFallback: false,
     scaling: 'parameter_min_max',
     actionName: 'Capture MIDI',
     triggerMode: 'value_gt_0',
@@ -47,6 +49,9 @@ export function createNanoKontrol2Demo() {
     targetDeviceName: target.targetDeviceName,
     targetButtonName: buttonNames[index],
     buttonMode: buttonModes[index],
+    parameterIndex: target.parameterCount + index,
+    parameterIndexMode: 'auto',
+    allowIndexFallback: false,
   })))
 
   mappings.push({
@@ -57,6 +62,7 @@ export function createNanoKontrol2Demo() {
     targetDeviceName: target.targetDeviceName,
     targetParameterName: parameterNames[0],
     parameterIndex: '',
+    allowIndexFallback: false,
     actionName: 'Capture MIDI',
     buttonMode: 'trigger',
     triggerMode: 'value_eq_127',

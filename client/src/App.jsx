@@ -3,6 +3,7 @@ import {
   createScriptSlug,
   generateButtonNames,
   generateParameterNames,
+  resolveMappingParameterIndex,
 } from './generators/remoteScriptGenerator.js'
 import { buildRemoteMapperPack, createTerminalCommands } from './generators/packGenerator.js'
 import { createNanoKontrol2Demo, NANO_KONTROL2_TARGET } from './demo/nanoKontrol2Demo.js'
@@ -50,7 +51,9 @@ const createMapping = (control, target, parameterNames, buttonNames, index) => {
     targetDeviceName: target.targetDeviceName,
     targetParameterName: parameterNames[index] || parameterNames[0],
     targetButtonName: buttonNames[index] || buttonNames[0],
-    parameterIndex: isButton ? '' : index,
+    parameterIndex: isButton ? Number(target.parameterCount) + index : index,
+    parameterIndexMode: 'auto',
+    allowIndexFallback: false,
     scaling: 'parameter_min_max',
     buttonMode: isButton ? 'momentary' : undefined,
     actionName: 'Capture MIDI',
@@ -142,6 +145,36 @@ function App() {
 
   const updateMapping = (id, patch) => {
     setMappings((current) => current.map((mapping) => mapping.id === id ? { ...mapping, ...patch } : mapping))
+  }
+
+  const updateTargetContract = (patch) => {
+    const nextTarget = { ...target, ...patch }
+    const nextParameterNames = generateParameterNames(nextTarget)
+    const nextButtonNames = generateButtonNames(nextTarget)
+    setMappings((current) => current.map((mapping) => {
+      if (mapping.targetType === 'm4l_parameter') {
+        const currentIndex = Math.max(0, parameterNames.indexOf(mapping.targetParameterName))
+        return {
+          ...mapping,
+          targetDeviceName: nextTarget.targetDeviceName,
+          targetParameterName: nextParameterNames[currentIndex] || nextParameterNames[0],
+          parameterIndex: Math.min(currentIndex, nextParameterNames.length - 1),
+          parameterIndexMode: 'auto',
+        }
+      }
+      if (mapping.targetType === 'm4l_button') {
+        const currentIndex = Math.max(0, buttonNames.indexOf(mapping.targetButtonName))
+        return {
+          ...mapping,
+          targetDeviceName: nextTarget.targetDeviceName,
+          targetButtonName: nextButtonNames[currentIndex] || nextButtonNames[0],
+          parameterIndex: Number(nextTarget.parameterCount) + Math.min(currentIndex, nextButtonNames.length - 1),
+          parameterIndexMode: 'auto',
+        }
+      }
+      return mapping
+    }))
+    setTarget(nextTarget)
   }
 
   const addMapping = (control) => {
@@ -280,14 +313,14 @@ function App() {
               <PanelHeader index="02" title="Max for Live Target" subtitle="Define the public parameter contract for your device." />
               <div className="target-grid">
                 <div className="target-form">
-                  <label className="field"><span>TARGET DEVICE NAME</span><input value={target.targetDeviceName} onChange={(event) => setTarget({ ...target, targetDeviceName: event.target.value })} /></label>
+                  <label className="field"><span>TARGET DEVICE NAME</span><input value={target.targetDeviceName} onChange={(event) => updateTargetContract({ targetDeviceName: event.target.value })} /></label>
                   <div className="field-pair">
-                    <label className="field"><span>PARAMETER COUNT</span><input type="number" min="1" max="128" value={target.parameterCount} onChange={(event) => setTarget({ ...target, parameterCount: Number(event.target.value) })} /></label>
-                    <label className="field"><span>PARAMETER PREFIX</span><input value={target.parameterPrefix} onChange={(event) => setTarget({ ...target, parameterPrefix: event.target.value })} /></label>
+                    <label className="field"><span>PARAMETER COUNT</span><input type="number" min="1" max="8" value={target.parameterCount} onChange={(event) => updateTargetContract({ parameterCount: Number(event.target.value) })} /></label>
+                    <label className="field"><span>PARAMETER PREFIX</span><input value={target.parameterPrefix} onChange={(event) => updateTargetContract({ parameterPrefix: event.target.value })} /></label>
                   </div>
                   <div className="field-pair">
-                    <label className="field"><span>BUTTON COUNT</span><input type="number" min="1" max="128" value={target.buttonCount || 8} onChange={(event) => setTarget({ ...target, buttonCount: Number(event.target.value) })} /></label>
-                    <label className="field"><span>BUTTON PREFIX</span><input value={target.buttonPrefix || 'M4L Button'} onChange={(event) => setTarget({ ...target, buttonPrefix: event.target.value })} /></label>
+                    <label className="field"><span>BUTTON COUNT</span><input type="number" min="1" max="8" value={target.buttonCount || 8} onChange={(event) => updateTargetContract({ buttonCount: Number(event.target.value) })} /></label>
+                    <label className="field"><span>BUTTON PREFIX</span><input value={target.buttonPrefix || 'M4L Button'} onChange={(event) => updateTargetContract({ buttonPrefix: event.target.value })} /></label>
                   </div>
                   <div className="hardware-note"><span>!</span><p>The Max for Live device must contain <code>live.dial</code> / <code>live.toggle</code> controls with these exact names in <strong>Long Name</strong>.</p></div>
                 </div>
@@ -381,9 +414,9 @@ function MappingTable({ mappings, updateMapping, removeMapping, parameterNames, 
   if (!mappings.length) return null
   const changeTargetType = (mapping, targetType) => {
     if (targetType === 'm4l_parameter') {
-      updateMapping(mapping.id, { targetType, controlType: 'continuous', targetParameterName: mapping.targetParameterName || parameterNames[0], scaling: 'parameter_min_max' })
+      updateMapping(mapping.id, { targetType, controlType: 'continuous', targetParameterName: parameterNames[0], parameterIndex: 0, parameterIndexMode: 'auto', allowIndexFallback: false, scaling: 'parameter_min_max' })
     } else if (targetType === 'm4l_button') {
-      updateMapping(mapping.id, { targetType, controlType: 'button', targetButtonName: mapping.targetButtonName || buttonNames[0], buttonMode: mapping.buttonMode || 'momentary' })
+      updateMapping(mapping.id, { targetType, controlType: 'button', targetButtonName: buttonNames[0], parameterIndex: Number(target.parameterCount), parameterIndexMode: 'auto', allowIndexFallback: false, buttonMode: mapping.buttonMode || 'momentary' })
     } else {
       updateMapping(mapping.id, { targetType, controlType: 'button', actionName: 'Capture MIDI', buttonMode: 'trigger', triggerMode: 'value_eq_127' })
     }
@@ -392,13 +425,28 @@ function MappingTable({ mappings, updateMapping, removeMapping, parameterNames, 
     {mappings.map((mapping) => <div className="mapping-row" key={mapping.id}>
       <div className="source-cell"><span className="cc-chip">CC {mapping.source.data1}</span><div><strong>{mapping.source.label}</strong><small>{mapping.source.endpointName} · CH {mapping.source.userChannel} / {mapping.source.frameworkChannel} · {(mapping.controlType || 'continuous').toUpperCase()}</small></div></div>
       <select value={mapping.targetType} onChange={(event) => changeTargetType(mapping, event.target.value)}><option value="m4l_parameter">M4L parameter</option><option value="m4l_button">M4L button</option><option value="global_action">Global action</option></select>
-      {mapping.targetType === 'm4l_parameter' ? <div className="target-cell"><input value={mapping.targetDeviceName} onChange={(event) => updateMapping(mapping.id, { targetDeviceName: event.target.value })} aria-label="Target device name" /><select value={mapping.targetParameterName} onChange={(event) => { const parameterIndex = parameterNames.indexOf(event.target.value); updateMapping(mapping.id, { targetParameterName: event.target.value, parameterIndex }) }}><option value={mapping.targetParameterName}>{mapping.targetParameterName}</option>{parameterNames.filter((name) => name !== mapping.targetParameterName).map((name) => <option key={name}>{name}</option>)}</select><label>INDEX <input type="number" min="0" placeholder="optional" value={mapping.parameterIndex} onChange={(event) => updateMapping(mapping.id, { parameterIndex: event.target.value === '' ? '' : Number(event.target.value) })} /></label></div>
-        : mapping.targetType === 'm4l_button' ? <div className="target-cell target-cell--button"><input value={mapping.targetDeviceName} onChange={(event) => updateMapping(mapping.id, { targetDeviceName: event.target.value })} aria-label="Target device name" /><select value={mapping.targetButtonName} onChange={(event) => updateMapping(mapping.id, { targetButtonName: event.target.value })}>{buttonNames.map((name) => <option key={name}>{name}</option>)}</select><select value={mapping.buttonMode || 'momentary'} onChange={(event) => updateMapping(mapping.id, { buttonMode: event.target.value })}><option value="momentary">momentary</option><option value="toggle_from_input">toggle from input</option><option value="toggle_in_script">toggle in script</option><option value="trigger">trigger</option></select></div>
+      {mapping.targetType === 'm4l_parameter' ? <div className="target-cell"><input value={mapping.targetDeviceName} onChange={(event) => updateMapping(mapping.id, { targetDeviceName: event.target.value })} aria-label="Target device name" /><select value={mapping.targetParameterName} onChange={(event) => { const parameterIndex = parameterNames.indexOf(event.target.value); updateMapping(mapping.id, { targetParameterName: event.target.value, parameterIndex, parameterIndexMode: 'auto' }) }}>{parameterNames.map((name) => <option key={name}>{name}</option>)}</select><FallbackIndexControl mapping={mapping} target={target} updateMapping={updateMapping} /></div>
+        : mapping.targetType === 'm4l_button' ? <div className="target-cell target-cell--button"><input value={mapping.targetDeviceName} onChange={(event) => updateMapping(mapping.id, { targetDeviceName: event.target.value })} aria-label="Target device name" /><select value={mapping.targetButtonName} onChange={(event) => { const buttonIndex = buttonNames.indexOf(event.target.value); updateMapping(mapping.id, { targetButtonName: event.target.value, parameterIndex: Number(target.parameterCount) + buttonIndex, parameterIndexMode: 'auto' }) }}>{buttonNames.map((name) => <option key={name}>{name}</option>)}</select><select className="button-mode-select" value={mapping.buttonMode || 'momentary'} onChange={(event) => updateMapping(mapping.id, { buttonMode: event.target.value })}><option value="momentary">Momentary</option><option value="toggle_from_input">Input toggle</option><option value="toggle_in_script">Script toggle</option><option value="trigger">Trigger</option></select><FallbackIndexControl mapping={mapping} target={target} updateMapping={updateMapping} /></div>
           : <div className="target-cell target-cell--action"><select value={mapping.actionName} onChange={(event) => updateMapping(mapping.id, { actionName: event.target.value })}><option>Capture MIDI</option></select><select value={mapping.buttonMode || 'trigger'} disabled><option value="trigger">trigger</option></select><select value={mapping.triggerMode || 'value_eq_127'} onChange={(event) => updateMapping(mapping.id, { triggerMode: event.target.value })}><option value="value_eq_127">value = 127</option></select></div>}
       <button className="icon-button" onClick={() => removeMapping(mapping.id)} aria-label="Remove mapping"><Icon name="trash" /></button>
     </div>)}
     <div className="mapping-footer"><span>TARGET CONTRACT</span><strong>{target.targetDeviceName}</strong><span>{parameterNames.length} CONTINUOUS · {buttonNames.length} BUTTONS</span></div>
   </div>
+}
+
+function FallbackIndexControl({ mapping, target, updateMapping }) {
+  const automaticIndex = resolveMappingParameterIndex({ ...mapping, parameterIndex: '' }, target)
+  const manual = mapping.parameterIndexMode === 'manual'
+  const fallbackEnabled = mapping.allowIndexFallback === true
+  return <details className="advanced-index">
+    <summary><strong className={fallbackEnabled ? 'fallback-state fallback-state--enabled' : 'fallback-state'}>{fallbackEnabled ? 'Index fallback enabled' : 'Name match only'}</strong><span>Advanced</span></summary>
+    <label className="fallback-opt-in"><input type="checkbox" checked={fallbackEnabled} onChange={(event) => updateMapping(mapping.id, { allowIndexFallback: event.target.checked })} /><span><strong>Allow index fallback if name is missing</strong><small>Recommended: keep disabled. Name matching is safer for Max for Live devices.</small></span></label>
+    <div className="fallback-index-editor">
+      <label>FALLBACK INDEX: {manual ? 'MANUAL' : 'AUTO'} <input type="number" min="0" value={manual ? mapping.parameterIndex : automaticIndex} onChange={(event) => updateMapping(mapping.id, { parameterIndex: Number(event.target.value), parameterIndexMode: 'manual' })} /></label>
+      <button type="button" onClick={() => updateMapping(mapping.id, { parameterIndex: automaticIndex, parameterIndexMode: 'auto' })}>Use auto</button>
+    </div>
+    <p>Resolved by name first. Fallback index is only used if the exact parameter name is not found.</p>
+  </details>
 }
 
 function EmptyState({ title, body }) {

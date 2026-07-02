@@ -43,6 +43,12 @@ Parameter lookup walks tracks, return tracks, and nested rack chains. It tries t
 
 Mappings carry both a `controlType` (`continuous` or `button`) and a destination type. Continuous mappings use `parameter_min_max` scaling. Button destinations expose eight `M4L Button N` toggles and support `momentary`, `toggle_from_input`, `toggle_in_script`, and `trigger`; internal toggle states are keyed by MIDI channel and CC.
 
+`client/src/utils/m4lNaming.js` is the sole slot-name authority. At export time the pack generator parses the canonical `.maxpat`, trims it to the configured parameter/button counts, and rewrites every Long Name and Max parameter-table entry from that authority. This preserves the fallback order after excluding `Device On`: continuous slots start at 0 and buttons start at `parameterCount`.
+
+Index fallback is an explicit per-mapping opt-in (`allowIndexFallback`, serialized to Python as `allow_index_fallback`). Name matching runs first. When enabled, the Python script filters out `Device On`, resolves the candidate index, then checks `expected_kind` and `expected_prefix`; cross-kind Param/Button candidates are rejected and logged.
+
+Each parameter mapping serializes `parameter_aliases`: complete Long Name, compact Short Name, and Max Scripting Name. Exact and normalized alias matching both call the Param/Button compatibility guard. A deterministic profile hash becomes the Python `BUILD_ID`; `_log` prefers `c_instance().log_message`, so Log.txt identifies the loaded build before falling back to the canonical parent or status bar.
+
 The only v0.1 global action is Capture MIDI. Its trigger guard is generated from the mapping profile; `value_eq_127` cannot call `self.song().capture_midi()` for any other value.
 
 ## ZIP boundary

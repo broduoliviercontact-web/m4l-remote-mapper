@@ -11,4 +11,6 @@ This is the transparent Max Audio Effect target supplied with M4L Remote Mapper'
 
 The patch passes stereo audio unchanged from `plugin~ 1 2` to `plugout~ 1 2`. Each dial is a floating-point parameter normalized from `0.0` to `1.0` and also broadcasts its value on `m4l_param_1` through `m4l_param_8` for optional internal Max testing. Eight visible `live.toggle` controls provide automated OFF/ON targets for button mappings.
 
+Long Name and Short Name are intentionally identical and complete. The generated Remote Script additionally recognizes compact and Scripting Name aliases while rejecting Param/Button type mismatches.
+
 Do not rename the device or its parameter Long Names: the generated Remote Script resolves both by name.

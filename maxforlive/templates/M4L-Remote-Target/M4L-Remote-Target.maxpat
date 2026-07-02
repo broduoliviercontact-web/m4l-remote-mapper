@@ -112,7 +112,7 @@
               "parameter_longname": "M4L Param 1",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Param 1",
+              "parameter_shortname": "M4L Param 1",
               "parameter_type": 0,
               "parameter_unitstyle": 0
             }
@@ -139,7 +139,7 @@
               "parameter_longname": "M4L Param 2",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Param 2",
+              "parameter_shortname": "M4L Param 2",
               "parameter_type": 0,
               "parameter_unitstyle": 0
             }
@@ -166,7 +166,7 @@
               "parameter_longname": "M4L Param 3",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Param 3",
+              "parameter_shortname": "M4L Param 3",
               "parameter_type": 0,
               "parameter_unitstyle": 0
             }
@@ -193,7 +193,7 @@
               "parameter_longname": "M4L Param 4",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Param 4",
+              "parameter_shortname": "M4L Param 4",
               "parameter_type": 0,
               "parameter_unitstyle": 0
             }
@@ -220,7 +220,7 @@
               "parameter_longname": "M4L Param 5",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Param 5",
+              "parameter_shortname": "M4L Param 5",
               "parameter_type": 0,
               "parameter_unitstyle": 0
             }
@@ -247,7 +247,7 @@
               "parameter_longname": "M4L Param 6",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Param 6",
+              "parameter_shortname": "M4L Param 6",
               "parameter_type": 0,
               "parameter_unitstyle": 0
             }
@@ -274,7 +274,7 @@
               "parameter_longname": "M4L Param 7",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Param 7",
+              "parameter_shortname": "M4L Param 7",
               "parameter_type": 0,
               "parameter_unitstyle": 0
             }
@@ -301,7 +301,7 @@
               "parameter_longname": "M4L Param 8",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Param 8",
+              "parameter_shortname": "M4L Param 8",
               "parameter_type": 0,
               "parameter_unitstyle": 0
             }
@@ -329,7 +329,7 @@
               "parameter_longname": "M4L Button 1",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Button 1",
+              "parameter_shortname": "M4L Button 1",
               "parameter_type": 2,
               "parameter_unitstyle": 0
             }
@@ -357,7 +357,7 @@
               "parameter_longname": "M4L Button 2",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Button 2",
+              "parameter_shortname": "M4L Button 2",
               "parameter_type": 2,
               "parameter_unitstyle": 0
             }
@@ -385,7 +385,7 @@
               "parameter_longname": "M4L Button 3",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Button 3",
+              "parameter_shortname": "M4L Button 3",
               "parameter_type": 2,
               "parameter_unitstyle": 0
             }
@@ -413,7 +413,7 @@
               "parameter_longname": "M4L Button 4",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Button 4",
+              "parameter_shortname": "M4L Button 4",
               "parameter_type": 2,
               "parameter_unitstyle": 0
             }
@@ -441,7 +441,7 @@
               "parameter_longname": "M4L Button 5",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Button 5",
+              "parameter_shortname": "M4L Button 5",
               "parameter_type": 2,
               "parameter_unitstyle": 0
             }
@@ -469,7 +469,7 @@
               "parameter_longname": "M4L Button 6",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Button 6",
+              "parameter_shortname": "M4L Button 6",
               "parameter_type": 2,
               "parameter_unitstyle": 0
             }
@@ -497,7 +497,7 @@
               "parameter_longname": "M4L Button 7",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Button 7",
+              "parameter_shortname": "M4L Button 7",
               "parameter_type": 2,
               "parameter_unitstyle": 0
             }
@@ -525,7 +525,7 @@
               "parameter_longname": "M4L Button 8",
               "parameter_mmax": 1.0,
               "parameter_mmin": 0.0,
-              "parameter_shortname": "Button 8",
+              "parameter_shortname": "M4L Button 8",
               "parameter_type": 2,
               "parameter_unitstyle": 0
             }
@@ -680,22 +680,22 @@
       { "patchline": { "source": ["obj-dial-4", 0], "destination": ["obj-monitor-4", 0] } }
     ],
     "parameters": {
-      "obj-dial-1": ["M4L Param 1", "Param 1", 0],
-      "obj-dial-2": ["M4L Param 2", "Param 2", 0],
-      "obj-dial-3": ["M4L Param 3", "Param 3", 0],
-      "obj-dial-4": ["M4L Param 4", "Param 4", 0],
-      "obj-dial-5": ["M4L Param 5", "Param 5", 0],
-      "obj-dial-6": ["M4L Param 6", "Param 6", 0],
-      "obj-dial-7": ["M4L Param 7", "Param 7", 0],
-      "obj-dial-8": ["M4L Param 8", "Param 8", 0],
-      "obj-button-1": ["M4L Button 1", "Button 1", 0],
-      "obj-button-2": ["M4L Button 2", "Button 2", 0],
-      "obj-button-3": ["M4L Button 3", "Button 3", 0],
-      "obj-button-4": ["M4L Button 4", "Button 4", 0],
-      "obj-button-5": ["M4L Button 5", "Button 5", 0],
-      "obj-button-6": ["M4L Button 6", "Button 6", 0],
-      "obj-button-7": ["M4L Button 7", "Button 7", 0],
-      "obj-button-8": ["M4L Button 8", "Button 8", 0]
+      "obj-dial-1": ["M4L Param 1", "M4L Param 1", 0],
+      "obj-dial-2": ["M4L Param 2", "M4L Param 2", 0],
+      "obj-dial-3": ["M4L Param 3", "M4L Param 3", 0],
+      "obj-dial-4": ["M4L Param 4", "M4L Param 4", 0],
+      "obj-dial-5": ["M4L Param 5", "M4L Param 5", 0],
+      "obj-dial-6": ["M4L Param 6", "M4L Param 6", 0],
+      "obj-dial-7": ["M4L Param 7", "M4L Param 7", 0],
+      "obj-dial-8": ["M4L Param 8", "M4L Param 8", 0],
+      "obj-button-1": ["M4L Button 1", "M4L Button 1", 0],
+      "obj-button-2": ["M4L Button 2", "M4L Button 2", 0],
+      "obj-button-3": ["M4L Button 3", "M4L Button 3", 0],
+      "obj-button-4": ["M4L Button 4", "M4L Button 4", 0],
+      "obj-button-5": ["M4L Button 5", "M4L Button 5", 0],
+      "obj-button-6": ["M4L Button 6", "M4L Button 6", 0],
+      "obj-button-7": ["M4L Button 7", "M4L Button 7", 0],
+      "obj-button-8": ["M4L Button 8", "M4L Button 8", 0]
     },
     "parameterbanks": {},
     "dependency_cache": [],

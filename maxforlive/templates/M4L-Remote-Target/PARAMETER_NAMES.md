@@ -3,6 +3,7 @@
 The following Long Names are part of the Remote Script contract and must remain exact:
 
 All eight parameters are automated, visible to mapping, floating-point, and normalized to the range `0.0`–`1.0` with an initial value of `0.0`.
+Each exposed parameter uses the same complete value for Long Name and Short Name. Visual labels may stay compact, but Live receives `M4L Param N` and `M4L Button N` consistently.
 
 | Index | Ableton parameter name | Visual label | Internal send |
 | ---: | --- | --- | --- |
@@ -16,6 +17,7 @@ All eight parameters are automated, visible to mapping, floating-point, and norm
 | 8 | `M4L Param 8` | Param 8 | `m4l_param_8` |
 
 The indices shown here are human-readable. The generated Remote Script's optional fallback indices are zero-based.
+Index fallback is disabled by default because Max for Live parameter order is not guaranteed. Exact or normalized name matching is the safe default.
 
 ## Button parameters
 
@@ -31,6 +33,8 @@ The indices shown here are human-readable. The generated Remote Script's optiona
 | 8 | `M4L Button 8` | B08 | OFF / ON |
 
 The Scripting Names are `m4l_button_1` through `m4l_button_8`. All toggles are exposed to Live automation and mapping.
+
+The generated profile also includes three aliases per target: the complete name, the compact `Param N` / `Button N` name that some Live versions may report, and the Max Scripting Name.
 
 ## Button modes
 
