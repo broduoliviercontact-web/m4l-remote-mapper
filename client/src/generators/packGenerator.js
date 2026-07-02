@@ -17,7 +17,7 @@ export function createTerminalCommands(scriptSlug) {
     {
       id: 'read-log',
       label: 'Read useful Live logs',
-      command: `grep -R "M4L Remote Mapper\\|listening CC\\|CC received\\|target device\\|parameter updated\\|capture_midi" \\\n"$HOME/Library/Preferences/Ableton/Live 12.4.5b6/Log.txt" \\\n| tail -n 160`,
+      command: `grep -R "M4L Remote Mapper\\|listening CC\\|CC received\\|target device\\|parameter updated\\|button updated\\|button toggled\\|button triggered\\|capture_midi" \\\n"$HOME/Library/Preferences/Ableton/Live 12.4.5b6/Log.txt" \\\n| tail -n 160`,
     },
   ]
 }
@@ -46,6 +46,16 @@ Open the device in Max and verify the exact Long Names: \`M4L Param 1\` through 
 - Confirm that CC45 sends a value of exactly **127**.
 - Make sure a MIDI track has already received notes before requesting Capture MIDI.
 - Look for \`capture_midi requested\`, \`capture_midi success\`, or \`capture_midi error\` in Live's log.
+
+## Buttons do not latch or release correctly
+
+- Confirm that the profile marks the source as \`controlType: button\` and targets \`M4L Button 1\` through \`M4L Button 8\`.
+- Use \`momentary\` when press and release should follow the hardware.
+- Use \`toggle_from_input\` when the hardware already alternates ON/OFF.
+- Use \`toggle_in_script\` when every value-127 press should invert state and value 0 should be ignored.
+- Use \`trigger\` for Capture MIDI or a one-shot pulse; trigger mode ignores release value 0.
+
+MIDI sends values from 0 to 127. Continuous controls are normalized and scaled to the Ableton parameter's own minimum and maximum. Button targets receive only their minimum or maximum.
 
 ## The old \`self.log_message\` error appears
 
@@ -158,10 +168,16 @@ Restart Ableton, then open Settings → Link, Tempo & MIDI:
 ## 4. Smoke test
 
 - Move CC16 and confirm that \`M4L Param 1\` moves.
+- Press CC32 twice and confirm that \`M4L Button 1\` toggles ON, then OFF.
 - Send CC45 at value 127 and confirm Capture MIDI.
 - Double-click \`INSTALL_CHECK.command\` if the mapping does not respond.
 
 See \`TROUBLESHOOTING.md\` for log commands and known failure modes.
+
+## Control types
+
+- Continuous controls use \`parameter_min_max\` scaling: MIDI 0–127 is normalized and adapted to the target's own range.
+- Button controls support \`momentary\`, \`toggle_from_input\`, \`toggle_in_script\`, and \`trigger\` modes. They write only parameter minimum/maximum values; trigger ignores release value 0.
 `
 }
 

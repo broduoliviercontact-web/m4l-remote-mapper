@@ -10,7 +10,7 @@
     },
     "classnamespace": "box",
     "rect": [100.0, 100.0, 980.0, 440.0],
-    "presentation_rect": [0.0, 0.0, 550.0, 185.0],
+    "presentation_rect": [0.0, 0.0, 550.0, 260.0],
     "openinpresentation": 1,
     "default_fontname": "Arial",
     "default_fontsize": 12.0,
@@ -27,7 +27,7 @@
           "bgcolor": [0.09, 0.1, 0.08, 1.0],
           "patching_rect": [20.0, 10.0, 920.0, 290.0],
           "presentation": 1,
-          "presentation_rect": [4.0, 4.0, 542.0, 177.0],
+          "presentation_rect": [4.0, 4.0, 542.0, 252.0],
           "rounded": 0
         }
       },
@@ -310,6 +310,240 @@
       },
       {
         "box": {
+          "id": "obj-button-1",
+          "maxclass": "live.toggle",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "parameter_enable": 1,
+          "patching_rect": [165.0, 250.0, 32.0, 32.0],
+          "presentation": 1,
+          "presentation_rect": [28.0, 178.0, 32.0, 32.0],
+          "varname": "m4l_button_1",
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_enum": ["OFF", "ON"],
+              "parameter_initial": [0],
+              "parameter_initial_enable": 1,
+              "parameter_invisible": 0,
+              "parameter_longname": "M4L Button 1",
+              "parameter_mmax": 1.0,
+              "parameter_mmin": 0.0,
+              "parameter_shortname": "Button 1",
+              "parameter_type": 2,
+              "parameter_unitstyle": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "obj-button-2",
+          "maxclass": "live.toggle",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "parameter_enable": 1,
+          "patching_rect": [260.0, 250.0, 32.0, 32.0],
+          "presentation": 1,
+          "presentation_rect": [94.0, 178.0, 32.0, 32.0],
+          "varname": "m4l_button_2",
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_enum": ["OFF", "ON"],
+              "parameter_initial": [0],
+              "parameter_initial_enable": 1,
+              "parameter_invisible": 0,
+              "parameter_longname": "M4L Button 2",
+              "parameter_mmax": 1.0,
+              "parameter_mmin": 0.0,
+              "parameter_shortname": "Button 2",
+              "parameter_type": 2,
+              "parameter_unitstyle": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "obj-button-3",
+          "maxclass": "live.toggle",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "parameter_enable": 1,
+          "patching_rect": [355.0, 250.0, 32.0, 32.0],
+          "presentation": 1,
+          "presentation_rect": [160.0, 178.0, 32.0, 32.0],
+          "varname": "m4l_button_3",
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_enum": ["OFF", "ON"],
+              "parameter_initial": [0],
+              "parameter_initial_enable": 1,
+              "parameter_invisible": 0,
+              "parameter_longname": "M4L Button 3",
+              "parameter_mmax": 1.0,
+              "parameter_mmin": 0.0,
+              "parameter_shortname": "Button 3",
+              "parameter_type": 2,
+              "parameter_unitstyle": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "obj-button-4",
+          "maxclass": "live.toggle",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "parameter_enable": 1,
+          "patching_rect": [450.0, 250.0, 32.0, 32.0],
+          "presentation": 1,
+          "presentation_rect": [226.0, 178.0, 32.0, 32.0],
+          "varname": "m4l_button_4",
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_enum": ["OFF", "ON"],
+              "parameter_initial": [0],
+              "parameter_initial_enable": 1,
+              "parameter_invisible": 0,
+              "parameter_longname": "M4L Button 4",
+              "parameter_mmax": 1.0,
+              "parameter_mmin": 0.0,
+              "parameter_shortname": "Button 4",
+              "parameter_type": 2,
+              "parameter_unitstyle": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "obj-button-5",
+          "maxclass": "live.toggle",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "parameter_enable": 1,
+          "patching_rect": [545.0, 250.0, 32.0, 32.0],
+          "presentation": 1,
+          "presentation_rect": [292.0, 178.0, 32.0, 32.0],
+          "varname": "m4l_button_5",
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_enum": ["OFF", "ON"],
+              "parameter_initial": [0],
+              "parameter_initial_enable": 1,
+              "parameter_invisible": 0,
+              "parameter_longname": "M4L Button 5",
+              "parameter_mmax": 1.0,
+              "parameter_mmin": 0.0,
+              "parameter_shortname": "Button 5",
+              "parameter_type": 2,
+              "parameter_unitstyle": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "obj-button-6",
+          "maxclass": "live.toggle",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "parameter_enable": 1,
+          "patching_rect": [640.0, 250.0, 32.0, 32.0],
+          "presentation": 1,
+          "presentation_rect": [358.0, 178.0, 32.0, 32.0],
+          "varname": "m4l_button_6",
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_enum": ["OFF", "ON"],
+              "parameter_initial": [0],
+              "parameter_initial_enable": 1,
+              "parameter_invisible": 0,
+              "parameter_longname": "M4L Button 6",
+              "parameter_mmax": 1.0,
+              "parameter_mmin": 0.0,
+              "parameter_shortname": "Button 6",
+              "parameter_type": 2,
+              "parameter_unitstyle": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "obj-button-7",
+          "maxclass": "live.toggle",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "parameter_enable": 1,
+          "patching_rect": [735.0, 250.0, 32.0, 32.0],
+          "presentation": 1,
+          "presentation_rect": [424.0, 178.0, 32.0, 32.0],
+          "varname": "m4l_button_7",
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_enum": ["OFF", "ON"],
+              "parameter_initial": [0],
+              "parameter_initial_enable": 1,
+              "parameter_invisible": 0,
+              "parameter_longname": "M4L Button 7",
+              "parameter_mmax": 1.0,
+              "parameter_mmin": 0.0,
+              "parameter_shortname": "Button 7",
+              "parameter_type": 2,
+              "parameter_unitstyle": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "obj-button-8",
+          "maxclass": "live.toggle",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "parameter_enable": 1,
+          "patching_rect": [830.0, 250.0, 32.0, 32.0],
+          "presentation": 1,
+          "presentation_rect": [490.0, 178.0, 32.0, 32.0],
+          "varname": "m4l_button_8",
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_enum": ["OFF", "ON"],
+              "parameter_initial": [0],
+              "parameter_initial_enable": 1,
+              "parameter_invisible": 0,
+              "parameter_longname": "M4L Button 8",
+              "parameter_mmax": 1.0,
+              "parameter_mmin": 0.0,
+              "parameter_shortname": "Button 8",
+              "parameter_type": 2,
+              "parameter_unitstyle": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "obj-button-note",
+          "maxclass": "comment",
+          "text": "Buttons: M4L Button 1 ... M4L Button 8 · B01—B08",
+          "patching_rect": [165.0, 292.0, 400.0, 20.0],
+          "presentation": 1,
+          "presentation_rect": [16.0, 224.0, 410.0, 20.0]
+        }
+      },
+      {
+        "box": {
           "id": "obj-send-1",
           "maxclass": "newobj",
           "text": "s m4l_param_1",
@@ -453,7 +687,15 @@
       "obj-dial-5": ["M4L Param 5", "Param 5", 0],
       "obj-dial-6": ["M4L Param 6", "Param 6", 0],
       "obj-dial-7": ["M4L Param 7", "Param 7", 0],
-      "obj-dial-8": ["M4L Param 8", "Param 8", 0]
+      "obj-dial-8": ["M4L Param 8", "Param 8", 0],
+      "obj-button-1": ["M4L Button 1", "Button 1", 0],
+      "obj-button-2": ["M4L Button 2", "Button 2", 0],
+      "obj-button-3": ["M4L Button 3", "Button 3", 0],
+      "obj-button-4": ["M4L Button 4", "Button 4", 0],
+      "obj-button-5": ["M4L Button 5", "Button 5", 0],
+      "obj-button-6": ["M4L Button 6", "Button 6", 0],
+      "obj-button-7": ["M4L Button 7", "Button 7", 0],
+      "obj-button-8": ["M4L Button 8", "Button 8", 0]
     },
     "parameterbanks": {},
     "dependency_cache": [],

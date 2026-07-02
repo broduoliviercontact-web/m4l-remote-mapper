@@ -41,6 +41,8 @@ The generated Remote Script extends `_Framework.ControlSurface.ControlSurface`. 
 
 Parameter lookup walks tracks, return tracks, and nested rack chains. It tries the exact device/parameter names, then normalized alphanumeric names, then an optional zero-based parameter index over a filtered list that excludes Live's `Device On` parameter. CC values are clamped to `0.0`–`1.0`, scaled across the parameter's Live-reported minimum and maximum, and logged before assignment. The bundled showroom template itself exposes eight normalized float parameters with a `0.0`–`1.0` range.
 
+Mappings carry both a `controlType` (`continuous` or `button`) and a destination type. Continuous mappings use `parameter_min_max` scaling. Button destinations expose eight `M4L Button N` toggles and support `momentary`, `toggle_from_input`, `toggle_in_script`, and `trigger`; internal toggle states are keyed by MIDI channel and CC.
+
 The only v0.1 global action is Capture MIDI. Its trigger guard is generated from the mapping profile; `value_eq_127` cannot call `self.song().capture_midi()` for any other value.
 
 ## ZIP boundary

@@ -19,16 +19,26 @@ export function generateParameterNames({ parameterCount, parameterPrefix }) {
   )
 }
 
+export function generateButtonNames({ buttonCount = 8, buttonPrefix = 'M4L Button' }) {
+  return Array.from(
+    { length: Math.max(1, Number(buttonCount) || 1) },
+    (_, index) => `${buttonPrefix || 'M4L Button'} ${index + 1}`,
+  )
+}
+
 function buildPythonMappings(mappings) {
   const rows = mappings.map((mapping) => {
     const source = mapping.source
     if (mapping.targetType === 'global_action') {
-      return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "type": "global_action", "action": ${pyString(mapping.actionName)}, "trigger": ${pyString(mapping.triggerMode)}}`
+      return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "control_type": "button", "type": "global_action", "action": ${pyString(mapping.actionName)}, "button_mode": ${pyString(mapping.buttonMode || 'trigger')}, "trigger": ${pyString(mapping.triggerMode)}}`
+    }
+    if (mapping.targetType === 'm4l_button') {
+      return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "control_type": "button", "type": "m4l_button", "device": ${pyString(mapping.targetDeviceName)}, "parameter": ${pyString(mapping.targetButtonName)}, "button_mode": ${pyString(mapping.buttonMode || 'momentary')}, "button_id": ${pyString(`${source.frameworkChannel}:${source.data1}`)}, "parameter_index": None}`
     }
     const parameterIndex = mapping.parameterIndex === '' || mapping.parameterIndex == null
       ? 'None'
       : Number(mapping.parameterIndex)
-    return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "type": "m4l_parameter", "device": ${pyString(mapping.targetDeviceName)}, "parameter": ${pyString(mapping.targetParameterName)}, "parameter_index": ${parameterIndex}}`
+    return `        {"channel": ${source.frameworkChannel}, "cc": ${source.data1}, "control_type": "continuous", "type": "m4l_parameter", "device": ${pyString(mapping.targetDeviceName)}, "parameter": ${pyString(mapping.targetParameterName)}, "scaling": "parameter_min_max", "parameter_index": ${parameterIndex}}`
   })
   return rows.length ? `${rows.join(',\n')}\n` : ''
 }
@@ -40,12 +50,24 @@ export function generateRemoteScriptFiles({ target, mappings, scriptSlug = creat
     target,
     mappings: mappings.map((mapping) => ({
       source: mapping.source,
+      controlType: mapping.controlType || (mapping.targetType === 'm4l_parameter' ? 'continuous' : 'button'),
       targetType: mapping.targetType,
       ...(mapping.targetType === 'global_action'
-        ? { actionName: mapping.actionName, triggerMode: mapping.triggerMode }
-        : {
+        ? {
+            actionName: mapping.actionName,
+            buttonMode: mapping.buttonMode || 'trigger',
+            triggerMode: mapping.triggerMode,
+          }
+        : mapping.targetType === 'm4l_button'
+          ? {
+              targetDeviceName: mapping.targetDeviceName,
+              targetButtonName: mapping.targetButtonName,
+              buttonMode: mapping.buttonMode || 'momentary',
+            }
+          : {
             targetDeviceName: mapping.targetDeviceName,
             targetParameterName: mapping.targetParameterName,
+            scaling: mapping.scaling || 'parameter_min_max',
             parameterIndex: mapping.parameterIndex === '' ? null : mapping.parameterIndex,
           }),
     })),
@@ -82,6 +104,7 @@ ${buildPythonMappings(mappings)}    ]
     def _setup_mappings(self):
         self._mappings = list(self.MAPPINGS)
         self._controls = []
+        self._button_states = {}
         for mapping in self._mappings:
             control = EncoderElement(
                 MIDI_CC_TYPE,
@@ -106,9 +129,34 @@ ${buildPythonMappings(mappings)}    ]
         parameter = self._find_parameter(mapping)
         if parameter is None:
             return
+        if mapping["type"] == "m4l_button":
+            self._apply_button_mapping(mapping, value, parameter)
+            return
         scaled_value = self._scale_midi_to_parameter(value, parameter)
         parameter.value = scaled_value
         self._log("parameter updated: {} value={} scaled={}".format(parameter.name, value, scaled_value))
+
+    def _apply_button_mapping(self, mapping, value, parameter):
+        button_mode = mapping.get("button_mode", "momentary")
+        if button_mode in ("momentary", "toggle_from_input"):
+            parameter.value = parameter.max if value > 0 else parameter.min
+            self._log("button updated: {} mode={} value={}".format(parameter.name, button_mode, value))
+            return
+        if button_mode == "toggle_in_script":
+            if value != 127:
+                return
+            button_id = mapping.get("button_id", "{}:{}".format(mapping["channel"], mapping["cc"]))
+            state = not self._button_states.get(button_id, False)
+            self._button_states[button_id] = state
+            parameter.value = parameter.max if state else parameter.min
+            self._log("button toggled: {} state={}".format(parameter.name, state))
+            return
+        if button_mode == "trigger":
+            if value != 127:
+                return
+            parameter.value = parameter.max
+            parameter.value = parameter.min
+            self._log("button triggered: {}".format(parameter.name))
 
     def _scale_midi_to_parameter(self, midi_value, parameter):
         try:
@@ -189,6 +237,7 @@ Generated by M4L Remote Mapper. This pack connects MIDI CC messages to named Max
 
 - Target device: **${target.targetDeviceName}**
 - Parameters: **${target.parameterCount}**
+- Buttons: **${target.buttonCount || 8}**
 - Active mappings: **${mappings.length}**
 - Remote Script folder: \`${scriptSlug}\`
 
@@ -222,11 +271,16 @@ If nothing moves, verify that the controller sends the same channel and CC numbe
 
 export function generateM4LSpec(target) {
   const names = generateParameterNames(target)
+  const buttonNames = generateButtonNames(target)
   return `# ${target.targetDeviceName} — ${target.parameterCount} Parameter Specification
 
 The Max for Live device must be named **${target.targetDeviceName}**. Add exposed \`live.dial\` or \`live.toggle\` objects and set their **Long Name** exactly as follows:
 
 ${names.map((name, index) => `${index + 1}. \`${name}\``).join('\n')}
+
+Add exposed \`live.toggle\` objects with these Long Names:
+
+${buttonNames.map((name, index) => `${index + 1}. \`${name}\``).join('\n')}
 
 ## Contract
 

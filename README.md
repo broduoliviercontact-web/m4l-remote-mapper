@@ -34,7 +34,9 @@ npm run preview
 4. Route each MIDI source to an M4L parameter or to **Capture MIDI**.
 5. Download the generated ZIP and follow `3_READ_ME_FIRST.md` or the in-app Setup Wizard.
 
-The **Load nanoKONTROL2 demo** button targets the device **M4L-Remote-Target** and creates the validated profile: CC 16–19 on user channel 1 control M4L Params 1–4, and CC 45 triggers Capture MIDI only when its value equals 127.
+The **Load nanoKONTROL2 full demo** button targets **M4L-Remote-Target** and creates the validated profile: CC16–19 control M4L Params 1–4, CC32–33 toggle M4L Buttons 1–2 in the script, CC34–35 act momentarily on M4L Buttons 3–4, and CC45 triggers Capture MIDI only at value 127.
+
+Mappings distinguish `continuous` controls from `button` controls. Continuous MIDI values are normalized from 0–127 and scaled to the target parameter's own minimum/maximum. Buttons support `momentary`, `toggle_from_input`, `toggle_in_script`, and `trigger` modes and write only the target minimum or maximum.
 
 The downloaded pack includes `2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/M4L-Remote-Target/M4L-Remote-Target.maxpat`. Open it from a Max Audio Effect and save/load the device under the exact name **M4L-Remote-Target** so the Remote Script can resolve it.
 

@@ -16,6 +16,7 @@ import { generateRemoteScriptFiles } from '../client/src/generators/remoteScript
 
 const templateDirectory = path.join(process.cwd(), 'maxforlive/templates/M4L-Remote-Target')
 const templatePath = path.join(templateDirectory, 'M4L-Remote-Target.maxpat')
+const appPath = path.join(process.cwd(), 'client/src/App.jsx')
 
 function generateCaptureScript() {
   const { target, mappings } = createNanoKontrol2Demo()
@@ -28,10 +29,16 @@ test('Max for Live template exposes eight exact parameters and transparent stere
   const maxpat = JSON.parse(source)
   const boxes = maxpat.patcher.boxes.map(({ box }) => box)
   const dials = boxes.filter((box) => box.maxclass === 'live.dial')
+  const buttons = boxes.filter((box) => box.maxclass === 'live.toggle')
   const longNames = dials.map((dial) => dial.saved_attribute_attributes.valueof.parameter_longname)
+  const buttonLongNames = buttons.map((button) => button.saved_attribute_attributes.valueof.parameter_longname)
 
   assert.equal(dials.length, 8)
+  assert.equal(buttons.length, 8)
   assert.deepEqual(longNames, Array.from({ length: 8 }, (_, index) => `M4L Param ${index + 1}`))
+  assert.deepEqual(buttonLongNames, Array.from({ length: 8 }, (_, index) => `M4L Button ${index + 1}`))
+  assert.deepEqual(buttons.map((button) => button.varname), Array.from({ length: 8 }, (_, index) => `m4l_button_${index + 1}`))
+  assert.ok(buttons.every((button) => button.parameter_enable === 1))
   assert.ok(dials.every((dial) => dial.parameter_enable === 1))
   assert.ok(dials.every((dial) => {
     const attributes = dial.saved_attribute_attributes.valueof
@@ -53,9 +60,21 @@ test('Max for Live template exposes eight exact parameters and transparent stere
   assert.doesNotMatch(source, /S1|s1_param/i)
 })
 
+test('Button Bank and all button modes are exposed in the UI', async () => {
+  const appSource = await readFile(appPath, 'utf8')
+
+  assert.match(appSource, /BUTTON BANK/)
+  assert.match(appSource, /MOMENTARY \/ TOGGLE \/ TRIGGER/)
+  assert.match(appSource, /toggle_from_input/)
+  assert.match(appSource, /toggle_in_script/)
+  assert.match(appSource, /Load nanoKONTROL2 full demo/)
+  assert.match(appSource, /MIDI sends 0–127/)
+})
+
 test('nanoKONTROL2 demo targets M4L-Remote-Target with the validated mappings', () => {
   const { target, mappings } = createNanoKontrol2Demo()
   const parameterMappings = mappings.filter((mapping) => mapping.targetType === 'm4l_parameter')
+  const buttonMappings = mappings.filter((mapping) => mapping.targetType === 'm4l_button')
   const captureMapping = mappings.find((mapping) => mapping.targetType === 'global_action')
 
   assert.equal(NANO_KONTROL2_TARGET.targetDeviceName, 'M4L-Remote-Target')
@@ -71,16 +90,33 @@ test('nanoKONTROL2 demo targets M4L-Remote-Target with the validated mappings', 
     { cc: 18, userChannel: 1, frameworkChannel: 0, target: 'M4L Param 3' },
     { cc: 19, userChannel: 1, frameworkChannel: 0, target: 'M4L Param 4' },
   ])
+  assert.ok(parameterMappings.every((mapping) => mapping.controlType === 'continuous' && mapping.scaling === 'parameter_min_max'))
+  assert.deepEqual(buttonMappings.map((mapping) => ({
+    cc: mapping.source.data1,
+    controlType: mapping.controlType,
+    target: mapping.targetButtonName,
+    buttonMode: mapping.buttonMode,
+  })), [
+    { cc: 32, controlType: 'button', target: 'M4L Button 1', buttonMode: 'toggle_in_script' },
+    { cc: 33, controlType: 'button', target: 'M4L Button 2', buttonMode: 'toggle_in_script' },
+    { cc: 34, controlType: 'button', target: 'M4L Button 3', buttonMode: 'momentary' },
+    { cc: 35, controlType: 'button', target: 'M4L Button 4', buttonMode: 'momentary' },
+  ])
   assert.equal(captureMapping.source.data1, 45)
   assert.equal(captureMapping.source.userChannel, 1)
   assert.equal(captureMapping.source.frameworkChannel, 0)
   assert.equal(captureMapping.actionName, 'Capture MIDI')
+  assert.equal(captureMapping.controlType, 'button')
+  assert.equal(captureMapping.buttonMode, 'trigger')
   assert.equal(captureMapping.triggerMode, 'value_eq_127')
 
   const files = generateRemoteScriptFiles({ target, mappings })
   const profile = JSON.parse(files['profile.json'])
   assert.equal(profile.target.targetDeviceName, 'M4L-Remote-Target')
-  assert.equal(profile.mappings.length, 5)
+  assert.equal(profile.mappings.length, 9)
+  assert.equal(profile.mappings.find((mapping) => mapping.source.data1 === 16).controlType, 'continuous')
+  assert.equal(profile.mappings.find((mapping) => mapping.source.data1 === 32).controlType, 'button')
+  assert.equal(profile.mappings.find((mapping) => mapping.source.data1 === 32).targetButtonName, 'M4L Button 1')
 })
 
 test('generated Live 12 Remote Script uses the safe logging helper', () => {
@@ -108,9 +144,25 @@ test('generated Remote Script forwards every mapping through EncoderElement list
   assert.match(script, /def _make_value_listener\(self, mapping\):/)
   assert.doesNotMatch(script, /def receive_midi\(/)
 
-  for (const cc of [16, 17, 18, 19, 45]) {
+  for (const cc of [16, 17, 18, 19, 32, 33, 34, 35, 45]) {
     assert.match(script, new RegExp(`"channel": 0, "cc": ${cc},`))
   }
+})
+
+test('generated Remote Script implements button modes with min/max writes', () => {
+  const script = generateCaptureScript()
+
+  assert.match(script, /self\._button_states = \{\}/)
+  assert.match(script, /def _apply_button_mapping\(self, mapping, value, parameter\):/)
+  assert.match(script, /button_mode in \("momentary", "toggle_from_input"\)/)
+  assert.match(script, /parameter\.value = parameter\.max if value > 0 else parameter\.min/)
+  assert.match(script, /button_mode == "toggle_in_script"/)
+  assert.match(script, /if value != 127:\n\s+return/)
+  assert.match(script, /state = not self\._button_states\.get\(button_id, False\)/)
+  assert.match(script, /self\._button_states\[button_id\] = state/)
+  assert.match(script, /parameter\.value = parameter\.max if state else parameter\.min/)
+  assert.match(script, /button_mode == "trigger"/)
+  assert.match(script, /parameter\.value = parameter\.max\n\s+parameter\.value = parameter\.min/)
 })
 
 test('generated Remote Script scales MIDI through parameter min and max', () => {
@@ -148,11 +200,12 @@ test('parameter index fallback excludes Live Device On', () => {
 
 test('generated Capture MIDI mapping preserves the validated CC45 guard', () => {
   const script = generateCaptureScript()
+  const actionBlock = script.slice(script.indexOf('    def _run_global_action'), script.indexOf('    def _find_parameter'))
 
   assert.match(script, /"channel": 0, "cc": 45/)
   assert.match(script, /self\.song\(\)\.capture_midi\(\)/)
   assert.match(script, /value == 127/)
-  assert.doesNotMatch(script, /value > 0/)
+  assert.doesNotMatch(actionBlock, /value > 0/)
   assert.match(script, /global action requested: Capture MIDI/)
   assert.match(script, /capture_midi requested/)
   assert.match(script, /capture_midi success/)
@@ -263,9 +316,20 @@ test('export pack uses the guided structure and includes support files', async (
 
   const installCheck = await zip.file(`${root}INSTALL_CHECK.command`).async('string')
   const troubleshooting = await zip.file(`${root}TROUBLESHOOTING.md`).async('string')
+  const readMeFirst = await zip.file(`${root}3_READ_ME_FIRST.md`).async('string')
+  const parameterNames = await zip.file(`${root}2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/M4L-Remote-Target/PARAMETER_NAMES.md`).async('string')
+  const profile = JSON.parse(await zip.file(`${root}1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/${scriptSlug}/profile.json`).async('string'))
   assert.match(installCheck, /EncoderElement/)
   assert.match(installCheck, /self\.log_message\(/)
   assert.match(troubleshooting, /target device missing/)
   assert.match(troubleshooting, /parameter missing/)
   assert.match(troubleshooting, /Capture MIDI/)
+  assert.match(troubleshooting, /toggle_in_script/)
+  assert.match(readMeFirst, /Continuous controls/)
+  assert.match(readMeFirst, /Button controls/)
+  assert.match(parameterNames, /M4L Button 8/)
+  assert.match(parameterNames, /toggle_from_input/)
+  assert.equal(profile.mappings.length, 9)
+  assert.ok(profile.mappings.some((mapping) => mapping.controlType === 'continuous'))
+  assert.ok(profile.mappings.some((mapping) => mapping.controlType === 'button'))
 })

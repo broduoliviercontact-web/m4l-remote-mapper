@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   createScriptSlug,
+  generateButtonNames,
   generateParameterNames,
 } from './generators/remoteScriptGenerator.js'
 import { buildRemoteMapperPack, createTerminalCommands } from './generators/packGenerator.js'
@@ -39,16 +40,23 @@ const createControl = (endpointName, channel, cc, value = 0) => ({
   controlKind: 'unknown',
 })
 
-const createParameterMapping = (control, target, parameterName, index) => ({
-  id: `mapping-${control.id}-${Date.now()}-${index}`,
-  source: { ...control },
-  targetType: 'm4l_parameter',
-  targetDeviceName: target.targetDeviceName,
-  targetParameterName: parameterName,
-  parameterIndex: index,
-  actionName: 'Capture MIDI',
-  triggerMode: 'value_gt_0',
-})
+const createMapping = (control, target, parameterNames, buttonNames, index) => {
+  const isButton = control.controlKind === 'button'
+  return {
+    id: `mapping-${control.id}-${Date.now()}-${index}`,
+    source: { ...control },
+    controlType: isButton ? 'button' : 'continuous',
+    targetType: isButton ? 'm4l_button' : 'm4l_parameter',
+    targetDeviceName: target.targetDeviceName,
+    targetParameterName: parameterNames[index] || parameterNames[0],
+    targetButtonName: buttonNames[index] || buttonNames[0],
+    parameterIndex: isButton ? '' : index,
+    scaling: 'parameter_min_max',
+    buttonMode: isButton ? 'momentary' : undefined,
+    actionName: 'Capture MIDI',
+    triggerMode: 'value_eq_127',
+  }
+}
 
 function App() {
   const midiSupported = typeof navigator !== 'undefined' && 'requestMIDIAccess' in navigator
@@ -66,6 +74,7 @@ function App() {
   const [lastExportedSlug, setLastExportedSlug] = useState('')
 
   const parameterNames = useMemo(() => generateParameterNames(target), [target])
+  const buttonNames = useMemo(() => generateButtonNames(target), [target])
   const scriptSlug = useMemo(() => createScriptSlug(target.targetDeviceName), [target.targetDeviceName])
 
   const refreshInputs = (access) => {
@@ -136,9 +145,13 @@ function App() {
   }
 
   const addMapping = (control) => {
-    const usedParameters = new Set(mappings.filter((item) => item.targetType === 'm4l_parameter').map((item) => item.targetParameterName))
-    const parameterIndex = Math.max(0, parameterNames.findIndex((name) => !usedParameters.has(name)))
-    setMappings((current) => [...current, createParameterMapping(control, target, parameterNames[parameterIndex], parameterIndex)])
+    const isButton = control.controlKind === 'button'
+    const names = isButton ? buttonNames : parameterNames
+    const targetKey = isButton ? 'targetButtonName' : 'targetParameterName'
+    const targetType = isButton ? 'm4l_button' : 'm4l_parameter'
+    const usedTargets = new Set(mappings.filter((item) => item.targetType === targetType).map((item) => item[targetKey]))
+    const targetIndex = Math.max(0, names.findIndex((name) => !usedTargets.has(name)))
+    setMappings((current) => [...current, createMapping(control, target, parameterNames, buttonNames, targetIndex)])
     setActiveStep(2)
   }
 
@@ -208,7 +221,7 @@ function App() {
         <div className="signal-chain" aria-label="Product workflow">
           <span>MIDI Controller</span><b>→</b><span>Remote Script</span><b>→</b><span>Max for Live</span>
         </div>
-        <button className="demo-button" onClick={loadDemo}><Icon name="signal" /> Load nanoKONTROL2 demo</button>
+        <button className="demo-button" onClick={loadDemo}><Icon name="signal" /> Load nanoKONTROL2 full demo</button>
       </header>
 
       <main id="top">
@@ -272,15 +285,28 @@ function App() {
                     <label className="field"><span>PARAMETER COUNT</span><input type="number" min="1" max="128" value={target.parameterCount} onChange={(event) => setTarget({ ...target, parameterCount: Number(event.target.value) })} /></label>
                     <label className="field"><span>PARAMETER PREFIX</span><input value={target.parameterPrefix} onChange={(event) => setTarget({ ...target, parameterPrefix: event.target.value })} /></label>
                   </div>
+                  <div className="field-pair">
+                    <label className="field"><span>BUTTON COUNT</span><input type="number" min="1" max="128" value={target.buttonCount || 8} onChange={(event) => setTarget({ ...target, buttonCount: Number(event.target.value) })} /></label>
+                    <label className="field"><span>BUTTON PREFIX</span><input value={target.buttonPrefix || 'M4L Button'} onChange={(event) => setTarget({ ...target, buttonPrefix: event.target.value })} /></label>
+                  </div>
                   <div className="hardware-note"><span>!</span><p>The Max for Live device must contain <code>live.dial</code> / <code>live.toggle</code> controls with these exact names in <strong>Long Name</strong>.</p></div>
                 </div>
-                <div className="parameter-bank">
-                  <div className="bank-label"><span>EXPOSED PARAMETER BANK</span><Badge status="ready">{parameterNames.length} SLOTS</Badge></div>
-                  <div className="dial-grid">
-                    {parameterNames.map((name, index) => <div className="virtual-dial" key={name}><span className="dial"><i style={{ transform: `rotate(${-130 + index * 19}deg)` }} /></span><small>P{String(index + 1).padStart(2, '0')}</small><strong>{name}</strong></div>)}
+                <div className="banks-stack">
+                  <div className="parameter-bank">
+                    <div className="bank-label"><span>EXPOSED PARAMETER BANK</span><Badge status="ready">{parameterNames.length} CONTINUOUS</Badge></div>
+                    <div className="dial-grid">
+                      {parameterNames.map((name, index) => <div className="virtual-dial" key={name}><span className="dial"><i style={{ transform: `rotate(${-130 + index * 19}deg)` }} /></span><small>P{String(index + 1).padStart(2, '0')}</small><strong>{name}</strong></div>)}
+                    </div>
+                  </div>
+                  <div className="button-bank">
+                    <div className="bank-label"><span>BUTTON BANK</span><Badge status="captured">MOMENTARY / TOGGLE / TRIGGER</Badge></div>
+                    <div className="button-grid">
+                      {buttonNames.map((name, index) => <div className="virtual-button" key={name}><span className="button-led"><i /></span><small>B{String(index + 1).padStart(2, '0')}</small><strong>{name}</strong></div>)}
+                    </div>
                   </div>
                 </div>
               </div>
+              <div className="scaling-note"><Icon name="signal" /><p>MIDI sends 0–127, but Ableton parameters can use any range. M4L Remote Mapper scales MIDI values to the target parameter range automatically.</p></div>
               <div className="panel-actions"><button className="primary-button" onClick={() => setActiveStep(2)}>Continue to mapping <span>→</span></button></div>
             </article>
           )}
@@ -295,7 +321,7 @@ function App() {
                   {controls.map((control) => <option key={control.id} value={control.id}>{control.endpointName} · CH {control.userChannel} · CC {control.data1}</option>)}
                 </select>
               </div>
-              <MappingTable mappings={mappings} updateMapping={updateMapping} removeMapping={(id) => setMappings((current) => current.filter((mapping) => mapping.id !== id))} parameterNames={parameterNames} target={target} />
+              <MappingTable mappings={mappings} updateMapping={updateMapping} removeMapping={(id) => setMappings((current) => current.filter((mapping) => mapping.id !== id))} parameterNames={parameterNames} buttonNames={buttonNames} target={target} />
               {!mappings.length && <EmptyState title="No routes patched" body="Detect a MIDI control in Step 1, or load the nanoKONTROL2 demo." />}
               <div className="panel-actions"><button className="primary-button" disabled={!mappings.length} onClick={() => setActiveStep(3)}>Review export pack <span>→</span></button></div>
             </article>
@@ -351,17 +377,27 @@ function ControlList({ controls, updateControl, addMapping }) {
   </div>)}</div>
 }
 
-function MappingTable({ mappings, updateMapping, removeMapping, parameterNames, target }) {
+function MappingTable({ mappings, updateMapping, removeMapping, parameterNames, buttonNames, target }) {
   if (!mappings.length) return null
+  const changeTargetType = (mapping, targetType) => {
+    if (targetType === 'm4l_parameter') {
+      updateMapping(mapping.id, { targetType, controlType: 'continuous', targetParameterName: mapping.targetParameterName || parameterNames[0], scaling: 'parameter_min_max' })
+    } else if (targetType === 'm4l_button') {
+      updateMapping(mapping.id, { targetType, controlType: 'button', targetButtonName: mapping.targetButtonName || buttonNames[0], buttonMode: mapping.buttonMode || 'momentary' })
+    } else {
+      updateMapping(mapping.id, { targetType, controlType: 'button', actionName: 'Capture MIDI', buttonMode: 'trigger', triggerMode: 'value_eq_127' })
+    }
+  }
   return <div className="mapping-table"><div className="mapping-head"><span>SOURCE MIDI</span><span>TARGET TYPE</span><span>TARGET</span><span /></div>
     {mappings.map((mapping) => <div className="mapping-row" key={mapping.id}>
-      <div className="source-cell"><span className="cc-chip">CC {mapping.source.data1}</span><div><strong>{mapping.source.label}</strong><small>{mapping.source.endpointName} · CH {mapping.source.userChannel} / {mapping.source.frameworkChannel}</small></div></div>
-      <select value={mapping.targetType} onChange={(event) => updateMapping(mapping.id, { targetType: event.target.value })}><option value="m4l_parameter">M4L parameter</option><option value="global_action">Global action</option></select>
+      <div className="source-cell"><span className="cc-chip">CC {mapping.source.data1}</span><div><strong>{mapping.source.label}</strong><small>{mapping.source.endpointName} · CH {mapping.source.userChannel} / {mapping.source.frameworkChannel} · {(mapping.controlType || 'continuous').toUpperCase()}</small></div></div>
+      <select value={mapping.targetType} onChange={(event) => changeTargetType(mapping, event.target.value)}><option value="m4l_parameter">M4L parameter</option><option value="m4l_button">M4L button</option><option value="global_action">Global action</option></select>
       {mapping.targetType === 'm4l_parameter' ? <div className="target-cell"><input value={mapping.targetDeviceName} onChange={(event) => updateMapping(mapping.id, { targetDeviceName: event.target.value })} aria-label="Target device name" /><select value={mapping.targetParameterName} onChange={(event) => { const parameterIndex = parameterNames.indexOf(event.target.value); updateMapping(mapping.id, { targetParameterName: event.target.value, parameterIndex }) }}><option value={mapping.targetParameterName}>{mapping.targetParameterName}</option>{parameterNames.filter((name) => name !== mapping.targetParameterName).map((name) => <option key={name}>{name}</option>)}</select><label>INDEX <input type="number" min="0" placeholder="optional" value={mapping.parameterIndex} onChange={(event) => updateMapping(mapping.id, { parameterIndex: event.target.value === '' ? '' : Number(event.target.value) })} /></label></div>
-        : <div className="target-cell target-cell--action"><select value={mapping.actionName} onChange={(event) => updateMapping(mapping.id, { actionName: event.target.value })}><option>Capture MIDI</option></select><select value={mapping.triggerMode} onChange={(event) => updateMapping(mapping.id, { triggerMode: event.target.value })}><option value="value_gt_0">value &gt; 0</option><option value="value_eq_127">value = 127</option></select></div>}
+        : mapping.targetType === 'm4l_button' ? <div className="target-cell target-cell--button"><input value={mapping.targetDeviceName} onChange={(event) => updateMapping(mapping.id, { targetDeviceName: event.target.value })} aria-label="Target device name" /><select value={mapping.targetButtonName} onChange={(event) => updateMapping(mapping.id, { targetButtonName: event.target.value })}>{buttonNames.map((name) => <option key={name}>{name}</option>)}</select><select value={mapping.buttonMode || 'momentary'} onChange={(event) => updateMapping(mapping.id, { buttonMode: event.target.value })}><option value="momentary">momentary</option><option value="toggle_from_input">toggle from input</option><option value="toggle_in_script">toggle in script</option><option value="trigger">trigger</option></select></div>
+          : <div className="target-cell target-cell--action"><select value={mapping.actionName} onChange={(event) => updateMapping(mapping.id, { actionName: event.target.value })}><option>Capture MIDI</option></select><select value={mapping.buttonMode || 'trigger'} disabled><option value="trigger">trigger</option></select><select value={mapping.triggerMode || 'value_eq_127'} onChange={(event) => updateMapping(mapping.id, { triggerMode: event.target.value })}><option value="value_eq_127">value = 127</option></select></div>}
       <button className="icon-button" onClick={() => removeMapping(mapping.id)} aria-label="Remove mapping"><Icon name="trash" /></button>
     </div>)}
-    <div className="mapping-footer"><span>TARGET CONTRACT</span><strong>{target.targetDeviceName}</strong><span>{parameterNames.length} PARAMETERS</span></div>
+    <div className="mapping-footer"><span>TARGET CONTRACT</span><strong>{target.targetDeviceName}</strong><span>{parameterNames.length} CONTINUOUS · {buttonNames.length} BUTTONS</span></div>
   </div>
 }
 
@@ -398,6 +434,7 @@ const SETUP_STEPS = [
   ['output', 'Set Output to None', 'The generated pack does not need a MIDI output port.'],
   ['device', 'Load M4L-Remote-Target', 'The device name must match exactly, including hyphens.'],
   ['cc16', 'Test CC16 / M4L Param 1', 'Knob 1 should move the first visible monitor.'],
+  ['cc32', 'Test CC32 / M4L Button 1', 'The first button toggles its internal ON/OFF state on press.'],
   ['cc45', 'Test CC45 / Capture MIDI', 'Capture triggers only when CC45 sends the full value 127.'],
 ]
 
@@ -442,6 +479,12 @@ function SetupWizard({ scriptSlug, inputName }) {
       <div><small>CONTROL SURFACE</small><strong>{scriptSlug}</strong></div>
       <div><small>INPUT</small><strong>{inputName}</strong></div>
       <div><small>OUTPUT</small><strong>None</strong></div>
+    </div>
+    <div className="button-mode-guide">
+      <div><strong>Momentary</strong><span>Press = max · release = min</span></div>
+      <div><strong>Toggle from input</strong><span>Follow the hardware ON/OFF value</span></div>
+      <div><strong>Toggle in script</strong><span>Each value-127 press flips state</span></div>
+      <div><strong>Trigger</strong><span>Value 127 only · release ignored</span></div>
     </div>
     <div className="setup-grid">
       {SETUP_STEPS.map(([id, title, help], index) => <button key={id} className={`setup-step ${checked.has(id) ? 'setup-step--done' : ''}`} onClick={() => toggleStep(id)}>

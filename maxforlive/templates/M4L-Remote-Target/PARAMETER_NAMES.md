@@ -16,3 +16,27 @@ All eight parameters are automated, visible to mapping, floating-point, and norm
 | 8 | `M4L Param 8` | Param 8 | `m4l_param_8` |
 
 The indices shown here are human-readable. The generated Remote Script's optional fallback indices are zero-based.
+
+## Button parameters
+
+| Index | Ableton parameter name | Visual label | Range |
+| ---: | --- | --- | --- |
+| 1 | `M4L Button 1` | B01 | OFF / ON |
+| 2 | `M4L Button 2` | B02 | OFF / ON |
+| 3 | `M4L Button 3` | B03 | OFF / ON |
+| 4 | `M4L Button 4` | B04 | OFF / ON |
+| 5 | `M4L Button 5` | B05 | OFF / ON |
+| 6 | `M4L Button 6` | B06 | OFF / ON |
+| 7 | `M4L Button 7` | B07 | OFF / ON |
+| 8 | `M4L Button 8` | B08 | OFF / ON |
+
+The Scripting Names are `m4l_button_1` through `m4l_button_8`. All toggles are exposed to Live automation and mapping.
+
+## Button modes
+
+- `momentary`: incoming press writes the parameter maximum; release writes its minimum.
+- `toggle_from_input`: follows the controller's incoming ON/OFF value.
+- `toggle_in_script`: each value-127 press flips an internal state; release value 0 is ignored.
+- `trigger`: reacts only to value 127 and performs a pulse or global action without retaining continuous state.
+
+MIDI always arrives as `0–127`. Continuous mappings normalize that value and scale it to `parameter.min` / `parameter.max`; button mappings write only the target minimum or maximum.

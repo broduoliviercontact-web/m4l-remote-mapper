@@ -24,7 +24,7 @@ Open `2_OPEN_THIS_MAX_FOR_LIVE_DEVICE/M4L-Remote-Target/M4L-Remote-Target.maxpat
 1. Save the device in your Ableton User Library if Max asks you to do so.
 2. Load the resulting Max Audio Effect in Ableton.
 3. Verify that the loaded device is named exactly **M4L-Remote-Target**.
-4. Confirm that Live exposes `M4L Param 1` through `M4L Param 8`.
+4. Confirm that Live exposes `M4L Param 1` through `M4L Param 8` and `M4L Button 1` through `M4L Button 8`.
 
 The patch passes stereo audio through unchanged. Its parameter Long Names are already configured; do not rename them.
 
@@ -37,6 +37,16 @@ The patch passes stereo audio through unchanged. Its parameter Long Names are al
 5. Choose **None** as Output.
 6. Add **M4L-Remote-Target** to a track.
 7. Move knobs 1–4 and verify that M4L Params 1–4 respond.
+8. Press CC32/33 to test script-side toggles and CC34/35 to test momentary buttons.
+
+## Button modes and ranges
+
+- `momentary`: press writes parameter maximum; release writes minimum.
+- `toggle_from_input`: follows the controller's ON/OFF values.
+- `toggle_in_script`: every value-127 press flips internal state; release is ignored.
+- `trigger`: reacts only to value 127 and is used for Capture MIDI or one-shot pulses.
+
+MIDI sends `0–127`, but Ableton parameters may use any range. Continuous mappings normalize MIDI and scale it to `parameter.min` / `parameter.max`; button mappings write only those endpoints.
 
 ## Troubleshooting
 
