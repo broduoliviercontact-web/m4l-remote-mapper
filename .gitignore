@@ -3,4 +3,9 @@ client/node_modules/
 client/dist/
 .DS_Store
 *.log
-
+.env
+.env.*
+__pycache__/
+*.pyc
+.vite/
+coverage/
