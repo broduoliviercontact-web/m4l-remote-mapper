@@ -112,9 +112,10 @@ function App() {
   const mappingWarnings = useMemo(() => detectM4LMappingWarnings(mappings), [mappings])
 
   useEffect(() => {
-    document.title = `M4L Remote Mapper — ${uiTheme === 'terminal' ? 'Terminal' : 'Classic'}`
+    const themeLabel = uiTheme === 'terminal' ? 'Terminal' : uiTheme === 'monotype' ? 'Monotype' : uiTheme === 'night' ? 'Night' : 'Classic'
+    document.title = `M4L Remote Mapper — ${themeLabel}`
     document.documentElement.dataset.uiTheme = uiTheme
-    document.documentElement.classList.remove('theme-terminal', 'theme-classic')
+    document.documentElement.classList.remove('theme-terminal', 'theme-classic', 'theme-monotype', 'theme-night')
     document.documentElement.classList.add(`theme-${uiTheme}`)
     writeSharedTheme(uiTheme)
     let stylesheet = document.getElementById('terminal-theme-stylesheet')
@@ -370,9 +371,11 @@ function App() {
     mappings.length > 0,
   ]
   const terminalTheme = uiTheme === 'terminal'
+  const monotypeTheme = uiTheme === 'monotype'
+  const nightTheme = uiTheme === 'night'
 
   return (
-    <div className={`app-shell m4l-remote-mapper ${terminalTheme ? 'm4l-terminal-edition ascii-shell' : 'm4l-classic'} theme-${uiTheme}`} data-theme={uiTheme}>
+    <div className={`app-shell m4l-remote-mapper ${terminalTheme ? 'm4l-terminal-edition ascii-shell' : nightTheme ? 'monotype-edition night-edition' : monotypeTheme ? 'monotype-edition' : 'm4l-classic'} theme-${uiTheme}`} data-theme={uiTheme}>
       <div className="ambient-grid" />
       {terminalTheme ? <header className="topbar ascii-boot-header terminal-command-bar ascii-terminal">
         <div className="terminal-header-commands"><nav className="mapper-switcher" aria-label="Mapper type"><a href={`${import.meta.env.BASE_URL}?mapper=m4l`} className="active">[ M4L MAPPER ]</a><a href={`${import.meta.env.BASE_URL}?mapper=ableton`}>[ ABLETON MAPPER ]</a></nav><div className="header-actions terminal-header-actions"><button className="demo-button ascii-button" aria-label="Load nanoKONTROL2 full demo" onClick={loadDemo}>LOAD NANOKONTROL2 DEMO</button><ThemeSwitcher theme={uiTheme} setTheme={setUiTheme}/></div></div>
@@ -383,12 +386,7 @@ function App() {
       </header>}
 
       <main id="top">
-        {terminalTheme ? <section className="terminal-intro ascii-window" aria-label="M4L Remote Mapper terminal introduction">
-          <span className="terminal-intro__rule">+---------------- M4L REMOTE MAPPER / ASCII CONTROL TERMINAL ----------------+</span>
-          <div><strong>WIRE MIDI.</strong><strong>CONTROL MAX FOR LIVE.</strong><strong>COMPILE REMOTE SCRIPT.</strong></div>
-          <span className="terminal-intro__meta">[ TARGET:{target.targetDeviceName} ] [ ROUTES:{String(mappings.length).padStart(2, '0')} ] [ BUILD:LOCAL_ONLY ]</span>
-          <span className="terminal-intro__rule">+----------------------------------------------------------------------------+</span>
-        </section> : <section className="hero m4l-classic-hero"><div className="eyebrow"><span className="live-dot"/> BROWSER-BASED SCRIPT FORGE / MAX FOR LIVE</div><h1>Wire your controller.<br/><em>Control Max for Live.</em></h1><p>Capture MIDI controls, route them to named Max for Live parameters, then export one coherent Ableton Remote Script pack.</p></section>}
+        <section className="product-summary" aria-label="M4L Remote Mapper summary">Map MIDI controls to Max for Live and export a ready-to-install Remote Script.</section>
         <nav className="stepper stepper--m4l-five" aria-label="Build steps">
           {STEP_LABELS.map((label, index) => (
             <button key={label} className={`step ${activeStep === index ? 'step--active' : ''}`} onClick={() => setActiveStep(index)}>
@@ -513,7 +511,7 @@ function App() {
 }
 
 function ThemeSwitcher({ theme, setTheme }) {
-  return <div className={theme === 'terminal' ? 'm4l-theme-switcher' : 'theme-switcher'} role="group" aria-label="M4L interface theme"><span>THEME:</span><button type="button" className={theme === 'terminal' ? 'active' : ''} aria-pressed={theme === 'terminal'} onClick={() => setTheme('terminal')}>[ TERMINAL ]</button><button type="button" className={theme === 'classic' ? 'active' : ''} aria-pressed={theme === 'classic'} onClick={() => setTheme('classic')}>[ CLASSIC ]</button></div>
+  return <div className={theme === 'terminal' ? 'm4l-theme-switcher' : 'theme-switcher'} role="group" aria-label="M4L interface theme"><span>THEME:</span><button type="button" className={theme === 'terminal' ? 'active' : ''} aria-pressed={theme === 'terminal'} onClick={() => setTheme('terminal')}>[ TERMINAL ]</button><button type="button" className={theme === 'classic' ? 'active' : ''} aria-pressed={theme === 'classic'} onClick={() => setTheme('classic')}>[ CLASSIC ]</button><button type="button" className={theme === 'monotype' ? 'active' : ''} aria-pressed={theme === 'monotype'} onClick={() => setTheme('monotype')}>[ MONOTYPE ]</button><button type="button" className={theme === 'night' ? 'active' : ''} aria-pressed={theme === 'night'} onClick={() => setTheme('night')}>[ NIGHT ]</button></div>
 }
 
 function PanelHeader({ index, title, subtitle, compact = false, terminal = true }) {

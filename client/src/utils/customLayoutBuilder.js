@@ -7,11 +7,22 @@ const normalizedCount = (value) => Math.max(0, Math.min(32, Number.parseInt(valu
 
 const kindTitle = (kind) => `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`
 
+export const ABLETON_GLOBAL_ACTIONS = [
+  'Capture MIDI',
+  'Start Playback',
+  'Stop Playback',
+  'Continue Playback',
+  'Tap Tempo',
+  'Undo',
+  'Redo',
+]
+
 function createMapping({ kind, index, layoutInstanceId, layoutName, device, idFactory }) {
   const visualControlId = idFactory(`visual-${kind}`)
   const mappingId = idFactory(`custom-mapping-${kind}`)
   const visualControlLabel = `${kindTitle(kind)} ${index}`
-  const isButton = kind === 'button'
+  const isAction = kind === 'action'
+  const isButton = kind === 'button' || isAction
   return {
     control: { id: visualControlId, kind, label: visualControlLabel, mappingId },
     mapping: {
@@ -26,9 +37,10 @@ function createMapping({ kind, index, layoutInstanceId, layoutName, device, idFa
       visualControlLabel,
       source: null,
       controlType: isButton ? 'button' : 'continuous',
-      preferredControlKind: kind,
-      ...(isButton ? { buttonMode: 'toggle_in_script', buttonId: '' } : {}),
-      targetType: 'ableton_device_parameter',
+      preferredControlKind: isButton ? 'button' : kind,
+      ...(isButton ? { buttonMode: isAction ? 'trigger' : 'toggle_in_script', buttonId: '' } : {}),
+      targetType: isAction ? 'global_action' : 'ableton_device_parameter',
+      ...(isAction ? { actionName: ABLETON_GLOBAL_ACTIONS[0], triggerMode: 'value_eq_127' } : {}),
       targetDeviceName: device.deviceName,
       targetDeviceAliases: [device.deviceName, device.deviceClassName],
       targetParameterName: '',
@@ -46,11 +58,11 @@ function createMapping({ kind, index, layoutInstanceId, layoutName, device, idFa
   }
 }
 
-export function createCustomLayout({ name = 'My Custom Layout', faders = 0, knobs = 0, buttons = 0, device, instanceId, idFactory = makeId }) {
+export function createCustomLayout({ name = 'My Custom Layout', faders = 0, knobs = 0, buttons = 0, actions = 0, device, instanceId, idFactory = makeId }) {
   const layoutInstanceId = instanceId || idFactory('custom-layout')
   const layoutName = String(name || 'My Custom Layout').trim() || 'My Custom Layout'
   const generated = []
-  for (const [kind, count] of [['fader', faders], ['knob', knobs], ['button', buttons]]) {
+  for (const [kind, count] of [['fader', faders], ['knob', knobs], ['button', buttons], ['action', actions]]) {
     for (let index = 1; index <= normalizedCount(count); index += 1) generated.push(createMapping({ kind, index, layoutInstanceId, layoutName, device, idFactory }))
   }
   const customLayout = {
@@ -68,7 +80,7 @@ export function createCustomLayout({ name = 'My Custom Layout', faders = 0, knob
 
 export function addCustomControl(state, { layoutInstanceId, kind, device, idFactory = makeId }) {
   const layout = state.customLayouts.find((item) => item.layoutInstanceId === layoutInstanceId)
-  if (!layout || !['knob', 'fader', 'button'].includes(kind)) return state
+  if (!layout || !['knob', 'fader', 'button', 'action'].includes(kind)) return state
   const sameKind = layout.controls.filter((control) => control.kind === kind)
   const nextIndex = Math.max(sameKind.length, ...sameKind.map((control) => Number.parseInt(control.label.match(/(\d+)$/)?.[1], 10) || 0)) + 1
   const generated = createMapping({ kind, index: nextIndex, layoutInstanceId, layoutName: layout.layoutName, device, idFactory })
@@ -107,7 +119,8 @@ export function updateCustomControl(state, visualControlId, patch) {
   const control = layout?.controls.find((item) => item.id === visualControlId)
   if (!control) return state
   const nextKind = patch.kind || control.kind
-  const isButton = nextKind === 'button'
+  const isAction = nextKind === 'action'
+  const isButton = nextKind === 'button' || isAction
   const nextLabel = patch.label ?? control.label
   return {
     ...state,
@@ -121,9 +134,12 @@ export function updateCustomControl(state, visualControlId, patch) {
       visualControlLabel: nextLabel,
       userLabel: nextLabel,
       controlType: isButton ? 'button' : 'continuous',
-      preferredControlKind: nextKind,
-      source: mapping.source ? { ...mapping.source, controlKind: nextKind } : null,
-      buttonMode: isButton ? (mapping.buttonMode || 'toggle_in_script') : null,
+      preferredControlKind: isButton ? 'button' : nextKind,
+      source: mapping.source ? { ...mapping.source, controlKind: isButton ? 'button' : nextKind } : null,
+      targetType: isAction ? 'global_action' : 'ableton_device_parameter',
+      actionName: isAction ? (mapping.actionName || ABLETON_GLOBAL_ACTIONS[0]) : null,
+      triggerMode: isAction ? 'value_eq_127' : null,
+      buttonMode: isButton ? (isAction ? 'trigger' : (mapping.buttonMode === 'trigger' ? 'toggle_in_script' : mapping.buttonMode || 'toggle_in_script')) : null,
       buttonId: isButton && mapping.source ? `${mapping.source.frameworkChannel}:${mapping.source.data1}` : null,
     } : mapping),
   }

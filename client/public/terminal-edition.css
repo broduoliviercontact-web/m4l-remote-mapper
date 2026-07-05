@@ -715,6 +715,12 @@ footer a:hover { color: #000; background: var(--term-amber); }
 .terminal-intro__rule { overflow: hidden; color: var(--term-amber-dim); font-size: 8px; white-space: nowrap; }
 .terminal-intro > div { display: flex; flex-wrap: wrap; gap: 1ch 3ch; color: var(--term-amber-bright); font-size: 12px; letter-spacing: .05em; }
 .terminal-intro__meta { color: var(--term-muted); font-size: 8px; }
+.m4l-terminal-edition .product-summary,
+.unified-terminal-shell .product-summary { margin: 18px 0 12px; padding: 10px 12px; color: var(--term-amber-bright); border: 1px dashed var(--term-line); background: #000; font-size: 9px; letter-spacing: .04em; }
+.m4l-terminal-edition .product-summary::before,
+.unified-terminal-shell .product-summary::before { content: '> '; color: var(--term-muted); }
+.m4l-terminal-edition .product-summary + .stepper,
+.unified-terminal-shell .product-summary + .stepper { margin-top: 0; }
 .script-name-console { display: grid; grid-template-columns: minmax(300px,1.2fr) 1fr 1fr; gap: 2ch; padding: 14px; border: 1px dashed var(--term-line); }
 .script-name-console > div { display: grid; align-content: center; gap: 5px; color: var(--term-muted); }
 .script-name-console strong { color: var(--term-amber-bright); font-weight: 400; overflow-wrap: anywhere; }
@@ -724,8 +730,29 @@ footer a:hover { color: #000; background: var(--term-amber); }
 .m4l-theme-switcher button:hover,
 .m4l-theme-switcher button.active { color: #000; background: var(--term-amber); }
 .m4l-terminal-edition .controller-designer { max-width: 100%; margin-inline: auto; }
-.m4l-terminal-edition .mapping-panel,
-.m4l-terminal-edition .m4l-custom-layout-panel { overflow: hidden; }
+.m4l-terminal-edition .mapping-panel { overflow: hidden; }
+.m4l-terminal-edition.m4l-remote-mapper { overflow: clip; }
+.m4l-terminal-edition .m4l-custom-layout-panel { overflow: visible; }
+.m4l-terminal-edition .m4l-controller-designer { align-items: start; }
+.m4l-terminal-edition .m4l-controller-designer .visual-control-editor {
+  position: sticky;
+  top: 16px;
+  z-index: 6;
+  align-self: start;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--term-line);
+  scrollbar-color: var(--term-amber) #000;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 1050px) {
+  .m4l-terminal-edition .m4l-controller-designer .visual-control-editor {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+}
 
 /* Classic is deliberately quiet: same information architecture, no CRT treatment. */
 .theme-classic {
@@ -906,13 +933,43 @@ footer a:hover { color: #000; background: var(--term-amber); }
 .unified-terminal-shell .topbar.terminal-command-bar::after { content: none; }
 .m4l-terminal-edition .terminal-command-bar .terminal-header-commands,
 .unified-terminal-shell .terminal-command-bar .terminal-header-commands {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
   min-height: 46px;
   padding: 9px 4vw;
   border-top: 0;
 }
+.m4l-terminal-edition .terminal-command-bar .mapper-switcher,
+.unified-terminal-shell .terminal-command-bar .mapper-switcher {
+  grid-column: 2;
+  justify-self: center;
+}
 .m4l-terminal-edition .terminal-header-actions,
 .unified-terminal-shell .terminal-header-actions {
-  margin-left: auto;
+  grid-column: 3;
+  justify-self: end;
+  margin-left: 0;
   justify-content: flex-end;
   gap: 14px;
+}
+
+@media (max-width: 620px) {
+  .m4l-terminal-edition .terminal-command-bar .terminal-header-commands,
+  .unified-terminal-shell .terminal-command-bar .terminal-header-commands {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .m4l-terminal-edition .terminal-command-bar .mapper-switcher,
+  .unified-terminal-shell .terminal-command-bar .mapper-switcher,
+  .m4l-terminal-edition .terminal-header-actions,
+  .unified-terminal-shell .terminal-header-actions {
+    width: 100%;
+    justify-self: stretch;
+  }
+  .m4l-terminal-edition .terminal-header-actions,
+  .unified-terminal-shell .terminal-header-actions { justify-content: space-between; }
 }

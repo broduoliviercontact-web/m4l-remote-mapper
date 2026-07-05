@@ -78,6 +78,11 @@ test('Ableton Device Mapper UI exposes device, parameter and preset controls', a
   assert.match(source, /Choose Ableton Device/)
   assert.match(source, /aria-label="Ableton device"/)
   assert.match(source, /placeholder="Search parameter"/)
+  assert.match(source, /Fill Parameters/)
+  assert.match(source, /Ableton <strong>Device Mapper<\/strong>/)
+  const configureStep = source.slice(source.indexOf('{activeStep === 4'), source.indexOf('{activeStep === 5'))
+  assert.doesNotMatch(configureStep, /controllerDesigner/)
+  assert.match(configureStep, /GroupedMappingMatrix/)
   assert.ok(ABLETON_DEVICE_LAYOUTS.Operator.some((preset) => preset.name === 'Operator Musical 8'))
   assert.match(source, /Name match first/)
   assert.match(source, /Layout Stack/)
@@ -155,6 +160,33 @@ test('generated native Ableton Python compiles', async () => {
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
+})
+
+test('native Ableton generator maps global actions on MIDI value 127 only', async () => {
+  const operator = findCatalogDevice(await loadCatalog(), 'Operator')
+  const action = {
+    id: 'capture-midi-action',
+    source: { endpointName: 'Controller', userChannel: 1, frameworkChannel: 0, data1: 45, controlKind: 'button', label: 'Capture' },
+    controlType: 'button',
+    buttonMode: 'trigger',
+    targetType: 'global_action',
+    actionName: 'Capture MIDI',
+    triggerMode: 'value_eq_127',
+    visualControlKind: 'action',
+    visualControlLabel: 'Capture MIDI',
+  }
+  const files = generateAbletonDeviceRemoteScriptFiles({ device: operator, mappings: [action], scriptDisplayName: 'Operator Actions' })
+  const script = files[`${files.scriptSlug}.py`]
+  const profile = JSON.parse(files['profile.json'])
+  assert.equal(profile.mappings[0].targetType, 'global_action')
+  assert.equal(profile.mappings[0].actionName, 'Capture MIDI')
+  assert.match(script, /"type": "global_action"/)
+  assert.match(script, /if value != 127:/)
+  assert.match(script, /song\.capture_midi\(\)/)
+  assert.match(script, /song\.start_playing\(\)/)
+  assert.match(script, /song\.stop_playing\(\)/)
+  assert.match(script, /song\.tap_tempo\(\)/)
+  assert.match(script, /global action success/)
 })
 
 test('native Ableton ZIP contains installation and troubleshooting support', async () => {

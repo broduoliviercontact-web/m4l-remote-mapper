@@ -17,7 +17,7 @@ printf "Checking: %s\\n\\n" "$SCRIPT_DIR"
 for file in "__init__.py" "$SCRIPT_SLUG.py" "profile.json"; do
   [ -f "$SCRIPT_DIR/$file" ] && pass "$file exists" || fail "$file is missing"
 done
-for marker in "EncoderElement" "add_value_listener" "BUILD_ID" "parameter_aliases" "_find_target_device"; do
+for marker in "EncoderElement" "add_value_listener" "BUILD_ID" "parameter_aliases" "_find_target_device" "_run_global_action"; do
   grep -Fq "$marker" "$PY_FILE" 2>/dev/null && pass "$marker is present" || fail "$marker is missing"
 done
 grep -Fq '"allow_index_fallback": False' "$PY_FILE" 2>/dev/null && pass "Index fallback is disabled by default" || fail "Default fallback marker is missing"
@@ -63,6 +63,13 @@ Control Surface: **${scriptDisplayName}** (safe folder: \`${scriptSlug}\`)
 - Set Output to **None** and restart Ableton after replacing the script.
 - Confirm that the target device exists in the Set.
 - Run \`INSTALL_CHECK.command\` and inspect Log.txt.
+
+## MIDI action does not run
+
+- Use a physical button that sends value **127** when pressed.
+- Release value 0 is intentionally ignored so actions run once per press.
+- Check \`global action requested\`, \`global action success\`, or \`global action error\` in Log.txt.
+- Capture MIDI requires a MIDI track that has already received notes.
 `
 }
 
@@ -82,6 +89,7 @@ This pack controls a native Ableton Live device. No Max for Live target is requi
 6. Select **${inputName}** as Input and **None** as Output.
 7. Load **${deviceName}** in the Live Set. Selecting its track makes discovery faster.
 8. Move a mapped MIDI control and check Log.txt if nothing responds.
+9. MIDI actions (Capture MIDI, transport, Tap Tempo, Undo/Redo) run once when the assigned control sends value 127.
 
 Parameter names are matched first. Index fallback is disabled by default because device parameter order can change.
 

@@ -13,7 +13,7 @@ import {
   parsePortableM4LProfile,
 } from '../client/src/utils/customM4LLayoutBuilder.js'
 import { generateRemoteScriptFiles } from '../client/src/generators/remoteScriptGenerator.js'
-import { readSharedTheme, SHARED_THEME_KEY, writeSharedTheme } from '../client/src/utils/sharedTheme.js'
+import { DEFAULT_SHARED_THEME, readSharedTheme, SHARED_THEME_KEY, writeSharedTheme } from '../client/src/utils/sharedTheme.js'
 
 const target = { targetDeviceName: 'M4L-Remote-Target', parameterCount: 8, parameterPrefix: 'M4L Param', buttonCount: 8, buttonPrefix: 'M4L Button' }
 const parameterNames = Array.from({ length: 8 }, (_, index) => `M4L Param ${index + 1}`)
@@ -99,10 +99,17 @@ test('Terminal UI exposes the M4L preview, actions, presets and profile controls
   const root = process.cwd()
   const app = await readFile(path.join(root, 'client/src/App.jsx'), 'utf8')
   const abletonApp = await readFile(path.join(root, 'client/src/AbletonDeviceMapper.jsx'), 'utf8')
+  const main = await readFile(path.join(root, 'client/src/main.jsx'), 'utf8')
+  const vercel = await readFile(path.join(root, 'vercel.json'), 'utf8')
   const preview = await readFile(path.join(root, 'client/src/components/M4LControllerLayoutPreview.jsx'), 'utf8')
   const css = await readFile(path.join(root, 'client/public/terminal-edition.css'), 'utf8')
   const classicCss = await readFile(path.join(root, 'client/src/styles.css'), 'utf8')
+  const monotypeCss = await readFile(path.join(root, 'client/src/monotype-theme.css'), 'utf8')
   assert.match(app, /M4LControllerLayoutPreview/)
+  assert.match(main, /routeParams\.set\('mapper', 'm4l'\)/)
+  assert.match(main, /window\.history\.replaceState/)
+  assert.match(vercel, /"outputDirectory": "client\/dist"/)
+  assert.match(vercel, /"destination": "\/index\.html"/)
   assert.match(app, /Custom M4L MIDI Layout/)
   assert.match(app, /ACTIONS/)
   assert.match(app, /PRESET M4L LAYOUTS/)
@@ -123,8 +130,29 @@ test('Terminal UI exposes the M4L preview, actions, presets and profile controls
   assert.match(app, /writeSharedTheme\(uiTheme\)/)
   assert.match(app, /theme-terminal/)
   assert.match(app, /theme-classic/)
+  assert.match(app, /theme-monotype/)
+  assert.match(app, /\[ MONOTYPE \]/)
+  assert.match(abletonApp, /\[ MONOTYPE \]/)
+  assert.match(app, /\[ NIGHT \]/)
+  assert.match(abletonApp, /\[ NIGHT \]/)
+  assert.match(monotypeCss, /\.monotype-edition/)
+  assert.match(monotypeCss, /\.night-edition/)
+  assert.match(monotypeCss, /JetBrains Mono/)
+  assert.match(monotypeCss, /border-radius: 0 !important/)
+  assert.match(monotypeCss, /background: #f9f9f9/)
+  assert.match(monotypeCss, /\.controller-knob::before/)
+  assert.match(monotypeCss, /border-radius: 50% !important/)
+  assert.match(monotypeCss, /\.controller-button--active/)
+  assert.match(monotypeCss, /\.controller-button--active \+ small/)
+  assert.match(monotypeCss, /\.ascii-pad--active/)
+  assert.match(monotypeCss, /\.custom-layout-creator \.primary-button/)
+  assert.match(monotypeCss, /justify-self: center/)
+  assert.match(monotypeCss, /\.ascii-fader__track/)
+  assert.match(monotypeCss, /\.ascii-fader__thumb::after/)
   assert.match(app, /m4l-classic/)
-  assert.match(app, /m4l-classic-hero/)
+  assert.match(app, /product-summary/)
+  assert.match(app, /Map MIDI controls to Max for Live/)
+  assert.doesNotMatch(app, /m4l-classic-hero/)
   assert.match(app, /stylesheet\.media = uiTheme === 'terminal' \? 'all' : 'not all'/)
   assert.match(app, /if \(!terminal\) return <div className=/)
   assert.match(app, /readSharedTheme\('m4l-remote-mapper-theme'\)/)
@@ -139,6 +167,9 @@ test('Terminal UI exposes the M4L preview, actions, presets and profile controls
   assert.match(css, /width: min\(1080px/)
   assert.match(css, /\.m4l-theme-switcher/)
   assert.match(css, /\.theme-classic/)
+  assert.match(css, /\.m4l-controller-designer \.visual-control-editor/)
+  assert.match(css, /position: sticky/)
+  assert.match(css, /max-height: calc\(100vh - 32px\)/)
   assert.match(classicCss, /\.m4l-classic \.stepper--m4l-five/)
   assert.match(abletonApp, /unified-terminal-shell/)
   assert.match(app, /terminal-command-bar/)
@@ -146,11 +177,15 @@ test('Terminal UI exposes the M4L preview, actions, presets and profile controls
   assert.match(app, /terminal-header-actions/)
   assert.match(abletonApp, /terminal-header-actions/)
   assert.match(css, /padding: 9px 4vw/)
+  assert.match(css, /grid-template-columns: 1fr auto 1fr/)
+  assert.match(css, /\.terminal-command-bar \.mapper-switcher/)
   assert.doesNotMatch(app, /terminal-boot-command/)
   assert.doesNotMatch(app, /terminal-status-grid/)
   assert.doesNotMatch(abletonApp, /terminal-boot-command/)
   assert.doesNotMatch(abletonApp, /terminal-status-grid/)
-  assert.match(abletonApp, /terminal-intro native-terminal-intro/)
+  assert.match(abletonApp, /product-summary/)
+  assert.match(abletonApp, /Map MIDI controls to native Ableton devices/)
+  assert.doesNotMatch(abletonApp, /native-terminal-intro/)
   assert.match(abletonApp, /\[ TERMINAL \]/)
   assert.match(abletonApp, /\[ CLASSIC \]/)
   assert.match(css, /\.m4l-terminal-edition,\s*\n\.unified-terminal-shell/)
@@ -168,6 +203,9 @@ test('M4L and Ableton mapper share one persistent Terminal or Classic preference
   }
 
   try {
+    assert.equal(DEFAULT_SHARED_THEME, 'night')
+    assert.equal(readSharedTheme('m4l-remote-mapper-theme'), 'night')
+
     writeSharedTheme('terminal')
     assert.equal(storage.get(SHARED_THEME_KEY), 'terminal')
     assert.equal(readSharedTheme('m4l-remote-mapper-theme'), 'terminal')
@@ -177,6 +215,16 @@ test('M4L and Ableton mapper share one persistent Terminal or Classic preference
     assert.equal(storage.get(SHARED_THEME_KEY), 'classic')
     assert.equal(readSharedTheme('m4l-remote-mapper-theme'), 'classic')
     assert.equal(readSharedTheme('ableton-device-mapper-theme', 'normal'), 'classic')
+
+    writeSharedTheme('monotype')
+    assert.equal(storage.get(SHARED_THEME_KEY), 'monotype')
+    assert.equal(readSharedTheme('m4l-remote-mapper-theme'), 'monotype')
+    assert.equal(readSharedTheme('ableton-device-mapper-theme', 'normal'), 'monotype')
+
+    writeSharedTheme('night')
+    assert.equal(storage.get(SHARED_THEME_KEY), 'night')
+    assert.equal(readSharedTheme('m4l-remote-mapper-theme'), 'night')
+    assert.equal(readSharedTheme('ableton-device-mapper-theme', 'normal'), 'night')
   } finally {
     if (previousWindow === undefined) delete globalThis.window
     else globalThis.window = previousWindow

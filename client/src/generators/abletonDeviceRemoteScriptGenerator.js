@@ -55,7 +55,9 @@ export function createAbletonDeviceProfile({ device, mappings, scriptDisplayName
       visualControlId: mapping.visualControlId || null,
       visualControlKind: mapping.visualControlKind || null,
       visualControlLabel: mapping.visualControlLabel || null,
-      targetType: 'ableton_device_parameter',
+      targetType: mapping.targetType || 'ableton_device_parameter',
+      actionName: mapping.targetType === 'global_action' ? mapping.actionName : null,
+      triggerMode: mapping.targetType === 'global_action' ? (mapping.triggerMode || 'value_eq_127') : null,
       targetDeviceName: device.deviceName,
       targetDeviceAliases: unique([device.deviceName, device.deviceClassName, ...(mapping.targetDeviceAliases || [])]),
       targetParameterName: mapping.targetParameterName,
@@ -73,8 +75,10 @@ export function createAbletonDeviceProfile({ device, mappings, scriptDisplayName
 
 function buildPythonMappings(profile) {
   return profile.mappings
-    .filter((mapping) => mapping.source && mapping.targetParameterName)
-    .map((mapping) => `        {"channel": ${mapping.source.frameworkChannel}, "cc": ${mapping.source.data1}, "control_type": ${pyString(mapping.controlType)}, "type": "ableton_device_parameter", "button_mode": ${mapping.controlType === 'button' ? pyString(mapping.buttonMode) : 'None'}, "button_id": ${mapping.controlType === 'button' ? pyString(mapping.buttonId) : 'None'}, "device": ${pyString(mapping.targetDeviceName)}, "device_aliases": ${JSON.stringify(mapping.targetDeviceAliases)}, "parameter": ${pyString(mapping.targetParameterName)}, "parameter_aliases": ${JSON.stringify(mapping.parameterAliases)}, "parameter_index": ${mapping.parameterIndex == null ? 'None' : Number(mapping.parameterIndex)}, "allow_index_fallback": ${pyBoolean(mapping.allowIndexFallback)}, "scaling": ${pyString(mapping.scaling)}, "invert": ${pyBoolean(mapping.invert)}, "curve": ${pyString(mapping.curve)}}`)
+    .filter((mapping) => mapping.source && (mapping.targetType === 'global_action' ? mapping.actionName : mapping.targetParameterName))
+    .map((mapping) => mapping.targetType === 'global_action'
+      ? `        {"channel": ${mapping.source.frameworkChannel}, "cc": ${mapping.source.data1}, "control_type": "button", "type": "global_action", "action": ${pyString(mapping.actionName)}, "button_mode": "trigger", "trigger": "value_eq_127"}`
+      : `        {"channel": ${mapping.source.frameworkChannel}, "cc": ${mapping.source.data1}, "control_type": ${pyString(mapping.controlType)}, "type": "ableton_device_parameter", "button_mode": ${mapping.controlType === 'button' ? pyString(mapping.buttonMode) : 'None'}, "button_id": ${mapping.controlType === 'button' ? pyString(mapping.buttonId) : 'None'}, "device": ${pyString(mapping.targetDeviceName)}, "device_aliases": ${JSON.stringify(mapping.targetDeviceAliases)}, "parameter": ${pyString(mapping.targetParameterName)}, "parameter_aliases": ${JSON.stringify(mapping.parameterAliases)}, "parameter_index": ${mapping.parameterIndex == null ? 'None' : Number(mapping.parameterIndex)}, "allow_index_fallback": ${pyBoolean(mapping.allowIndexFallback)}, "scaling": ${pyString(mapping.scaling)}, "invert": ${pyBoolean(mapping.invert)}, "curve": ${pyString(mapping.curve)}}`)
     .join(',\n')
 }
 
@@ -142,6 +146,9 @@ ${buildPythonMappings(profile)}
         return listener
 
     def _apply_mapping(self, mapping, value):
+        if mapping["type"] == "global_action":
+            self._run_global_action(mapping, value)
+            return
         parameter = self._find_parameter(mapping)
         if parameter is None:
             return
@@ -176,6 +183,34 @@ ${buildPythonMappings(profile)}
             parameter.value = parameter.max
             parameter.value = parameter.min
             self._log("button triggered: {}".format(parameter.name))
+
+    def _run_global_action(self, mapping, value):
+        if value != 127:
+            return
+        action = mapping.get("action")
+        song = self.song()
+        self._log("global action requested: {}".format(action))
+        try:
+            if action == "Capture MIDI":
+                song.capture_midi()
+            elif action == "Start Playback":
+                song.start_playing()
+            elif action == "Stop Playback":
+                song.stop_playing()
+            elif action == "Continue Playback":
+                song.continue_playing()
+            elif action == "Tap Tempo":
+                song.tap_tempo()
+            elif action == "Undo" and getattr(song, "can_undo", False):
+                song.undo()
+            elif action == "Redo" and getattr(song, "can_redo", False):
+                song.redo()
+            else:
+                self._log("global action unavailable: {}".format(action))
+                return
+            self._log("global action success: {}".format(action))
+        except Exception as error:
+            self._log("global action error: {} {}".format(action, error))
 
     def _find_target_device(self, mapping):
         song = self.song()

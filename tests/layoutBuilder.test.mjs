@@ -10,6 +10,7 @@ import {
   createControlPool,
   createPortableProfile,
   detectMappingWarnings,
+  fillEmptyMappingParameters,
   isButtonLikeParameter,
   parsePortableProfile,
   removeLayoutFromBuilder,
@@ -44,6 +45,24 @@ test('button-like detection recognizes Device On and conservative switch names',
   assert.equal(isButtonLikeParameter({ name: 'Mode Enable' }), true)
   assert.equal(isButtonLikeParameter({ name: 'Section Active' }), true)
   assert.equal(isButtonLikeParameter({ name: 'Filter Freq', min: 0, max: 1, controlType: 'continuous' }), false)
+})
+
+test('Fill Parameters completes empty targets with unique compatible catalog parameters', async () => {
+  const device = await loadOperator()
+  const mappings = [
+    { id: 'existing', controlType: 'continuous', targetParameterName: 'Volume' },
+    { id: 'knob-1', controlType: 'continuous', targetParameterName: '' },
+    { id: 'fader-1', controlType: 'continuous', targetParameterName: '' },
+    { id: 'button-1', controlType: 'button', targetParameterName: '' },
+  ]
+  const result = fillEmptyMappingParameters(mappings, device)
+  assert.equal(result.filledCount, 3)
+  assert.equal(result.mappings[0].targetParameterName, 'Volume')
+  const filled = result.mappings.slice(1)
+  assert.equal(new Set(filled.map((mapping) => mapping.targetParameterName)).size, 3)
+  assert.ok(filled.slice(0, 2).every((mapping) => !isButtonLikeParameter(device.parameters.find((parameter) => parameter.name === mapping.targetParameterName))))
+  assert.equal(isButtonLikeParameter(device.parameters.find((parameter) => parameter.name === filled[2].targetParameterName)), true)
+  assert.ok(filled.every((mapping) => Number.isInteger(mapping.parameterIndex)))
 })
 
 test('Operator modular layouts include Musical 8 and Filter 4', () => {

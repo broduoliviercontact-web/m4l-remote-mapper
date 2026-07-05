@@ -5,6 +5,7 @@ import test from 'node:test'
 
 import { findCatalogDevice } from '../client/src/data/abletonDeviceCatalog.js'
 import {
+  ABLETON_GLOBAL_ACTIONS,
   addCustomControl,
   assignMidiSourceToMapping,
   createCustomLayout,
@@ -53,6 +54,19 @@ test('custom controls can be added, changed, and removed with their mapping', as
   assert.equal(state.mappings.length, 2)
   assert.equal(state.customLayouts[0].controls.length, 2)
   assert.equal(state.layoutStack[0].controlCount, 2)
+})
+
+test('custom layout creates MIDI-triggered Ableton actions', async () => {
+  const device = await loadOperator()
+  const created = createCustomLayout({ name: 'Actions', actions: 2, device, instanceId: 'custom-actions', idFactory })
+  assert.equal(created.mappings.length, 2)
+  assert.ok(created.mappings.every((mapping) => mapping.visualControlKind === 'action'))
+  assert.ok(created.mappings.every((mapping) => mapping.targetType === 'global_action'))
+  assert.ok(created.mappings.every((mapping) => mapping.controlType === 'button' && mapping.buttonMode === 'trigger'))
+  assert.ok(created.mappings.every((mapping) => mapping.triggerMode === 'value_eq_127'))
+  assert.equal(created.mappings[0].actionName, 'Capture MIDI')
+  assert.deepEqual(ABLETON_GLOBAL_ACTIONS, ['Capture MIDI', 'Start Playback', 'Stop Playback', 'Continue Playback', 'Tap Tempo', 'Undo', 'Redo'])
+  assert.ok(!detectMappingWarnings(created.mappings, device).some((warning) => warning.type === 'missing_parameter'))
 })
 
 test('visual Learn MIDI assigns the intended mapping and duplicate MIDI remains a warning', async () => {
@@ -121,6 +135,8 @@ test('ControllerLayoutPreview exposes visual controls and per-control editing ac
   assert.match(source, /Remove control/)
   assert.match(source, /\+ Add knob/)
   assert.match(source, /Visual button mode/)
+  assert.match(source, /Visual Ableton action/)
+  assert.match(source, /\+ Add action/)
 })
 
 test('normal and terminal Custom Layout renderers share one persistent theme switch', async () => {

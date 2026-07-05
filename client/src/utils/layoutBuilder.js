@@ -10,6 +10,40 @@ export function isButtonLikeParameter(parameter) {
   return buttonName && (binaryRange || parameter.controlType === 'enum' || (parameter.min == null && parameter.max == null))
 }
 
+export function fillEmptyMappingParameters(mappings, device) {
+  const usedNames = new Set(mappings.map((mapping) => mapping.targetParameterName).filter(Boolean))
+  const safeParameters = allParameters(device).filter((parameter) => parameter.isEnabled !== false && parameter.risk !== 'dangerous')
+  const prioritize = (parameters) => [...parameters].sort((left, right) => {
+    const recommended = Number(Boolean(right.recommendedForKnob)) - Number(Boolean(left.recommendedForKnob))
+    if (recommended) return recommended
+    return (left.liveIndex ?? left.parameterIndex ?? 9999) - (right.liveIndex ?? right.parameterIndex ?? 9999)
+  })
+  const continuousParameters = prioritize(safeParameters.filter((parameter) => !isButtonLikeParameter(parameter)))
+  const buttonParameters = prioritize(safeParameters.filter(isButtonLikeParameter))
+  let filledCount = 0
+
+  const nextMappings = mappings.map((mapping) => {
+    if (mapping.targetType === 'global_action') return mapping
+    if (mapping.targetParameterName) return mapping
+    const pool = mapping.controlType === 'button' ? buttonParameters : continuousParameters
+    const parameter = pool.find((candidate) => !usedNames.has(candidate.name))
+    if (!parameter) return mapping
+    usedNames.add(parameter.name)
+    filledCount += 1
+    return {
+      ...mapping,
+      targetParameterName: parameter.name,
+      parameterAliases: [parameter.name],
+      parameterIndex: parameter.parameterIndex,
+      liveIndex: parameter.liveIndex,
+      parameterSection: parameter.section || 'Unclassified',
+      parameterRisk: parameter.risk || 'unknown',
+    }
+  })
+
+  return { mappings: nextMappings, filledCount }
+}
+
 const controlKey = (source) => source ? `${source.endpointName || ''}:${source.frameworkChannel}:${source.data1}` : ''
 const cleanControl = (control) => {
   if (!control) return null
@@ -145,19 +179,21 @@ export function detectMappingWarnings(mappings, device) {
       if (!sourceGroups.has(source)) sourceGroups.set(source, [])
       sourceGroups.get(source).push(mapping.id)
     }
-    if (!mapping.targetParameterName) warnings.push({ type: 'missing_parameter', mappingIds: [mapping.id], message: `No target parameter: ${mapping.userLabel || mapping.id}` })
-    else {
+    const isGlobalAction = mapping.targetType === 'global_action'
+    if (isGlobalAction && !mapping.actionName) warnings.push({ type: 'missing_action', mappingIds: [mapping.id], message: `No Ableton action: ${mapping.userLabel || mapping.id}` })
+    else if (!isGlobalAction && !mapping.targetParameterName) warnings.push({ type: 'missing_parameter', mappingIds: [mapping.id], message: `No target parameter: ${mapping.userLabel || mapping.id}` })
+    else if (!isGlobalAction) {
       if (!parameterGroups.has(mapping.targetParameterName)) parameterGroups.set(mapping.targetParameterName, [])
       parameterGroups.get(mapping.targetParameterName).push(mapping.id)
       if (!catalogNames.has(mapping.targetParameterName)) warnings.push({ type: 'catalog_parameter_missing', mappingIds: [mapping.id], message: `Parameter missing in catalog: ${mapping.targetParameterName}` })
     }
-    if (mapping.allowIndexFallback) warnings.push({ type: 'fallback_enabled', mappingIds: [mapping.id], message: `Index fallback enabled: ${mapping.targetParameterName}` })
+    if (!isGlobalAction && mapping.allowIndexFallback) warnings.push({ type: 'fallback_enabled', mappingIds: [mapping.id], message: `Index fallback enabled: ${mapping.targetParameterName}` })
     const parameter = allParameters(device).find((candidate) => candidate.name === mapping.targetParameterName)
     const sourceKind = mapping.source?.controlKind
     if (mapping.controlType === 'button') {
       if (sourceKind && sourceKind !== 'button') warnings.push({ type: 'button_assigned_to_continuous_control', mappingIds: [mapping.id], message: `Button mapping assigned to ${sourceKind}: ${mapping.userLabel || mapping.id}` })
       if (!mapping.buttonMode) warnings.push({ type: 'button_mode_missing', mappingIds: [mapping.id], message: `Button mode missing: ${mapping.userLabel || mapping.id}` })
-      if (parameter && !isButtonLikeParameter(parameter)) warnings.push({ type: 'button_target_not_switch', mappingIds: [mapping.id], message: `Button target does not look like a switch: ${parameter.name}` })
+      if (!isGlobalAction && parameter && !isButtonLikeParameter(parameter)) warnings.push({ type: 'button_target_not_switch', mappingIds: [mapping.id], message: `Button target does not look like a switch: ${parameter.name}` })
       if (mapping.buttonMode === 'trigger' && parameter && !isButtonLikeParameter(parameter)) warnings.push({ type: 'trigger_on_continuous_parameter', mappingIds: [mapping.id], message: `Trigger mode used on continuous parameter: ${parameter.name}` })
     } else {
       if (sourceKind === 'button') warnings.push({ type: 'continuous_assigned_to_button', mappingIds: [mapping.id], message: `Continuous mapping assigned to button: ${mapping.userLabel || mapping.id}` })

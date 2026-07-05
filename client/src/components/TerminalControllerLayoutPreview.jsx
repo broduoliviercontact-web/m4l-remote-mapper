@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isButtonLikeParameter } from '../utils/layoutBuilder.js'
+import { ABLETON_GLOBAL_ACTIONS } from '../utils/customLayoutBuilder.js'
 
-const KIND_ORDER = ['knob', 'fader', 'button']
-const KIND_LABELS = { knob: 'Knobs', fader: 'Faders', button: 'Buttons' }
+const KIND_ORDER = ['knob', 'fader', 'button', 'action']
+const KIND_LABELS = { knob: 'Knobs', fader: 'Faders', button: 'Buttons', action: 'Actions' }
 
 function AsciiControlGlyph({ kind, mapping }) {
   const liveValue = mapping?.buttonMode === 'toggle_in_script' ? (mapping?.source?.displayValue ?? mapping?.source?.lastValue) : mapping?.source?.lastValue
@@ -30,7 +31,7 @@ function AsciiControlGlyph({ kind, mapping }) {
   }
   const active = value > 0
   const mode = mapping?.buttonMode === 'trigger' ? 'TRIGGER' : mapping?.buttonMode === 'momentary' ? 'MOMENT' : 'TOGGLE'
-  return <div className={`ascii-control-glyph ascii-pad ${active ? 'ascii-pad--active' : ''}`} role="img" aria-label={`Button ${active ? 'on' : 'off'}, value ${value}`}>
+  return <div className={`ascii-control-glyph ascii-pad ${active ? 'ascii-pad--active' : ''}`} role="img" aria-label={`${kind === 'action' ? 'Action' : 'Button'} ${active ? 'on' : 'off'}, value ${value}`}>
     <pre aria-hidden="true">{`+------------+
 | ${active ? '[*  ON  *]' : '[   OFF  ]'} |
 +------------+`}</pre>
@@ -41,14 +42,16 @@ function AsciiControlGlyph({ kind, mapping }) {
 
 function VisualControl({ control, mapping, warnings, selected, learning, onSelect, onLearn, onUnassign }) {
   const hasWarnings = warnings.length > 0
-  const status = learning ? 'LEARN' : selected ? 'EDIT' : hasWarnings ? 'WARN !' : mapping?.source && mapping?.targetParameterName ? 'OK' : 'WAIT'
+  const hasTarget = mapping?.targetType === 'global_action' ? Boolean(mapping?.actionName) : Boolean(mapping?.targetParameterName)
+  const status = learning ? 'LEARN' : selected ? 'EDIT' : hasWarnings ? 'WARN !' : mapping?.source && hasTarget ? 'OK' : 'WAIT'
   return <div role="button" tabIndex="0" data-control-kind={control.kind} className={`visual-control visual-control--${control.kind} ${selected ? 'visual-control--selected' : ''} ${learning ? 'visual-control--learning' : ''} ${hasWarnings ? 'visual-control--warning' : ''}`} onClick={onSelect} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelect() }}>
     <span className="ascii-control-border" aria-hidden="true">+--------------------------+</span>
     <div className="ascii-control-body">
       <strong>|{selected ? '>' : ' '} {mapping?.visualControlLabel || control.label}</strong>
       <AsciiControlGlyph kind={control.kind} mapping={mapping} />
       <span className={mapping?.source ? 'visual-route visual-route--assigned' : 'visual-route'}>| MIDI: {learning ? 'WAIT..._' : mapping?.source ? `CC${mapping.source.data1} / CH${mapping.source.userChannel}` : 'NONE'}</span>
-      <span className="visual-target">| TARGET: {mapping?.targetParameterName || 'NONE'}</span>
+      <span className="visual-target">| TARGET: {mapping?.targetType === 'global_action' ? mapping.actionName : (mapping?.targetParameterName || 'NONE')}</span>
+      {mapping?.targetType === 'global_action' && <span className="visual-target">| TRIGGER: VALUE == 127</span>}
       <span className={`ascii-status ascii-status--${status.replace(/\W/g, '').toLowerCase()}`}>| STATUS: {status}</span>
     </div>
     <span className="visual-control__actions">
@@ -99,7 +102,7 @@ export default function ControllerLayoutPreview({
 | CUSTOM GRID / MIDI SURFACE                               |
 +----------------------------------------------------------+
 | STATUS: EMPTY                                            |
-| > DEFINE FADERS / KNOBS / BUTTONS                        |
+| > DEFINE FADERS / KNOBS / BUTTONS / ACTIONS              |
 | > [ CREATE CUSTOM LAYOUT ]                               |
 +----------------------------------------------------------+`}</pre></div>
 
@@ -123,19 +126,17 @@ export default function ControllerLayoutPreview({
         })}
         {!layout.controls.length && <p className="controller-empty-row">This faceplate is empty. Add a control below.</p>}
       </div>
-      <div className="controller-add-strip"><span>&gt; ADD_MODULE:</span><button type="button" onClick={() => onAddControl(layout.layoutInstanceId, 'knob')}>[ + KNOB ]</button><button type="button" onClick={() => onAddControl(layout.layoutInstanceId, 'fader')}>[ + FADER ]</button><button type="button" onClick={() => onAddControl(layout.layoutInstanceId, 'button')}>[ + BUTTON ]</button></div>
+      <div className="controller-add-strip"><span>&gt; ADD_MODULE:</span><button type="button" onClick={() => onAddControl(layout.layoutInstanceId, 'knob')}>[ + KNOB ]</button><button type="button" onClick={() => onAddControl(layout.layoutInstanceId, 'fader')}>[ + FADER ]</button><button type="button" onClick={() => onAddControl(layout.layoutInstanceId, 'button')}>[ + BUTTON ]</button><button type="button" onClick={() => onAddControl(layout.layoutInstanceId, 'action')}>[ + ACTION ]</button></div>
     </div>
 
     <aside className="visual-control-editor">
       {selectedMapping && selectedControl ? <>
         <div className="visual-editor__heading"><div><span>+----------- EDIT CONTROL -----------+</span><strong>| CONTROL: {selectedMapping.visualControlLabel}</strong></div><span className={`editor-kind editor-kind--${selectedControl.kind}`}>[{selectedControl.kind}]</span></div>
         <label><span>CONTROL LABEL</span><input aria-label="Visual control label" value={selectedMapping.visualControlLabel || ''} onChange={(event) => onUpdateControl(selectedControl.id, { label: event.target.value })} /></label>
-        <label><span>CONTROL SHAPE</span><select aria-label="Visual control kind" value={selectedControl.kind} onChange={(event) => onUpdateControl(selectedControl.id, { kind: event.target.value })}><option value="knob">Knob</option><option value="fader">Fader</option><option value="button">Button</option></select></label>
+        <label><span>CONTROL SHAPE</span><select aria-label="Visual control kind" value={selectedControl.kind} onChange={(event) => onUpdateControl(selectedControl.id, { kind: event.target.value })}><option value="knob">Knob</option><option value="fader">Fader</option><option value="button">Button</option><option value="action">Action</option></select></label>
         <div className="visual-midi-actions"><button type="button" className={learningMappingId === selectedMapping.id ? 'primary-button learn-button--active' : 'primary-button'} onClick={() => onLearn(selectedMapping.id)}>{learningMappingId === selectedMapping.id ? 'WAIT MIDI...' : 'LEARN MIDI'}</button><button type="button" className="secondary-button" onClick={() => onUnassign(selectedMapping.id)}>UNASSIGN</button></div>
         <div className="visual-assignment-readout"><small>MIDI</small><strong>{selectedMapping.source ? `CC ${selectedMapping.source.data1} · Channel ${selectedMapping.source.userChannel}` : 'Not assigned'}</strong></div>
-        <label><span>SEARCH PARAMETER</span><input aria-label="Visual parameter search" type="search" value={parameterSearch} onChange={(event) => setParameterSearch(event.target.value)} placeholder="Volume, Filter Freq, Device On…" /></label>
-        <label><span>TARGET PARAMETER</span><select aria-label="Visual target parameter" value={selectedMapping.targetParameterName || ''} onChange={(event) => onChooseParameter(selectedMapping, event.target.value)}><option value="">No parameter</option>{selectedMapping.targetParameterName && <option value={selectedMapping.targetParameterName}>{selectedMapping.targetParameterName}</option>}{parameterOptions.filter((parameter) => parameter.name !== selectedMapping.targetParameterName).map((parameter) => <option key={`${parameter.liveIndex}-${parameter.name}`} value={parameter.name}>{isButtonLikeParameter(parameter) ? '◼ ' : ''}{parameter.name}</option>)}</select></label>
-        {selectedMapping.controlType === 'button' ? <label><span>BUTTON MODE</span><select aria-label="Visual button mode" value={selectedMapping.buttonMode || 'toggle_in_script'} onChange={(event) => onUpdateMapping(selectedMapping.id, { buttonMode: event.target.value })}><option value="toggle_in_script">TOGGLE / LATCH IN SCRIPT [RECOMMENDED]</option><option value="momentary">MOMENTARY / ACTIVE WHILE HELD</option><option value="toggle_from_input">FOLLOW HARDWARE ON / OFF</option><option value="trigger">TRIGGER / ONE SHOT</option></select><small>For a physical momentary button, use TOGGLE / LATCH. Release value 0 is ignored.</small></label> : <div className="visual-scaling-options"><label><span>SCALING</span><select aria-label="Visual scaling" value={selectedMapping.invert ? 'inverted_parameter_min_max' : 'parameter_min_max'} onChange={(event) => onUpdateMapping(selectedMapping.id, { invert: event.target.value === 'inverted_parameter_min_max', scaling: event.target.value })}><option value="parameter_min_max">parameter_min_max</option><option value="inverted_parameter_min_max">inverted_parameter_min_max</option></select></label><label className="invert-check"><input type="checkbox" checked={selectedMapping.invert === true} onChange={(event) => onUpdateMapping(selectedMapping.id, { invert: event.target.checked, scaling: event.target.checked ? 'inverted_parameter_min_max' : 'parameter_min_max' })}/> Invert MIDI</label></div>}
+        {selectedMapping.targetType === 'global_action' ? <><label><span>ABLETON ACTION</span><select aria-label="Visual Ableton action" value={selectedMapping.actionName || ABLETON_GLOBAL_ACTIONS[0]} onChange={(event) => onUpdateMapping(selectedMapping.id, { actionName: event.target.value })}>{ABLETON_GLOBAL_ACTIONS.map((action) => <option key={action}>{action}</option>)}</select></label><div className="action-trigger-note"><strong>TRIGGER: VALUE == 127</strong><small>Release value 0 is ignored.</small></div></> : <><label><span>SEARCH PARAMETER</span><input aria-label="Visual parameter search" type="search" value={parameterSearch} onChange={(event) => setParameterSearch(event.target.value)} placeholder="Volume, Filter Freq, Device On…" /></label><label><span>TARGET PARAMETER</span><select aria-label="Visual target parameter" value={selectedMapping.targetParameterName || ''} onChange={(event) => onChooseParameter(selectedMapping, event.target.value)}><option value="">No parameter</option>{selectedMapping.targetParameterName && <option value={selectedMapping.targetParameterName}>{selectedMapping.targetParameterName}</option>}{parameterOptions.filter((parameter) => parameter.name !== selectedMapping.targetParameterName).map((parameter) => <option key={`${parameter.liveIndex}-${parameter.name}`} value={parameter.name}>{isButtonLikeParameter(parameter) ? '◼ ' : ''}{parameter.name}</option>)}</select></label>{selectedMapping.controlType === 'button' ? <label><span>BUTTON MODE</span><select aria-label="Visual button mode" value={selectedMapping.buttonMode || 'toggle_in_script'} onChange={(event) => onUpdateMapping(selectedMapping.id, { buttonMode: event.target.value })}><option value="toggle_in_script">TOGGLE / LATCH IN SCRIPT [RECOMMENDED]</option><option value="momentary">MOMENTARY / ACTIVE WHILE HELD</option><option value="toggle_from_input">FOLLOW HARDWARE ON / OFF</option><option value="trigger">TRIGGER / ONE SHOT</option></select><small>For a physical momentary button, use TOGGLE / LATCH. Release value 0 is ignored.</small></label> : <div className="visual-scaling-options"><label><span>SCALING</span><select aria-label="Visual scaling" value={selectedMapping.invert ? 'inverted_parameter_min_max' : 'parameter_min_max'} onChange={(event) => onUpdateMapping(selectedMapping.id, { invert: event.target.value === 'inverted_parameter_min_max', scaling: event.target.value })}><option value="parameter_min_max">parameter_min_max</option><option value="inverted_parameter_min_max">inverted_parameter_min_max</option></select></label><label className="invert-check"><input type="checkbox" checked={selectedMapping.invert === true} onChange={(event) => onUpdateMapping(selectedMapping.id, { invert: event.target.checked, scaling: event.target.checked ? 'inverted_parameter_min_max' : 'parameter_min_max' })}/> Invert MIDI</label></div>}</>}
         <div className="visual-warning-stack">{controlWarnings(selectedMapping.id).map((warning) => <small key={`${warning.type}-${warning.message}`}>⚠ {warning.message}</small>)}</div>
         <button type="button" className="remove-visual-control" onClick={() => onRemoveControl(selectedControl.id)}>&gt; [ REMOVE CONTROL ]</button>
       </> : <div className="visual-editor-empty"><strong>Select a control</strong><p>Click any module on the faceplate to edit MIDI, target, label, and behavior.</p></div>}
