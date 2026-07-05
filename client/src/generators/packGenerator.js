@@ -322,8 +322,8 @@ See \`TROUBLESHOOTING.md\` for log commands and known failure modes.
 `
 }
 
-export function buildRemoteMapperPack({ target, mappings, templates }) {
-  const files = generateRemoteScriptFiles({ target, mappings })
+export function buildRemoteMapperPack({ target, mappings, templates, scriptSlug, customLayouts = [], controlPool = [], layoutStack = [] }) {
+  const files = generateRemoteScriptFiles({ target, mappings, scriptSlug, customLayouts, controlPool, layoutStack })
   const zip = new JSZip()
   const root = zip.folder('M4L_Remote_Mapper_Pack')
   const scriptFolder = root.folder(`1_COPY_THIS_FOLDER_TO_REMOTE_SCRIPTS/${files.scriptSlug}`)

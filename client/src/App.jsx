@@ -21,6 +21,7 @@ import {
   updateCustomM4LControl,
   updateM4LAssignedMidiValues,
 } from './utils/customM4LLayoutBuilder.js'
+import { readSharedTheme, writeSharedTheme } from './utils/sharedTheme.js'
 import maxForLivePatch from '../../maxforlive/templates/M4L-Remote-Target/M4L-Remote-Target.maxpat?raw'
 import maxForLiveReadme from '../../maxforlive/templates/M4L-Remote-Target/README.md?raw'
 import maxForLiveParameterNames from '../../maxforlive/templates/M4L-Remote-Target/PARAMETER_NAMES.md?raw'
@@ -100,9 +101,7 @@ function App() {
   const [scriptName, setScriptName] = useState('M4L Remote Target')
   const [profileMessage, setProfileMessage] = useState('')
   const [uiTheme, setUiTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'terminal'
-    const stored = window.localStorage.getItem('m4l-remote-mapper-theme')
-    return stored === 'classic' ? 'classic' : 'terminal'
+    return readSharedTheme('m4l-remote-mapper-theme')
   })
 
   const parameterNames = useMemo(() => generateParameterNames(target), [target])
@@ -117,7 +116,7 @@ function App() {
     document.documentElement.dataset.uiTheme = uiTheme
     document.documentElement.classList.remove('theme-terminal', 'theme-classic')
     document.documentElement.classList.add(`theme-${uiTheme}`)
-    window.localStorage.setItem('m4l-remote-mapper-theme', uiTheme)
+    writeSharedTheme(uiTheme)
     let stylesheet = document.getElementById('terminal-theme-stylesheet')
     if (!stylesheet) {
       stylesheet = document.createElement('link')
@@ -127,7 +126,7 @@ function App() {
       document.head.appendChild(stylesheet)
     }
     stylesheet.disabled = false
-    stylesheet.media = 'all'
+    stylesheet.media = uiTheme === 'terminal' ? 'all' : 'not all'
   }, [uiTheme])
 
   const refreshInputs = (access) => {
@@ -370,24 +369,26 @@ function App() {
     mappings.length > 0,
     mappings.length > 0,
   ]
+  const terminalTheme = uiTheme === 'terminal'
 
   return (
-    <div className={`app-shell m4l-terminal-edition ascii-shell theme-${uiTheme}`} data-theme={uiTheme}>
+    <div className={`app-shell m4l-remote-mapper ${terminalTheme ? 'm4l-terminal-edition ascii-shell' : 'm4l-classic'} theme-${uiTheme}`} data-theme={uiTheme}>
       <div className="ambient-grid" />
-      <header className="topbar ascii-boot-header ascii-terminal">
-        <div className="terminal-title-line"><a className="brand" href="#top" aria-label="M4L Remote Mapper home">| M4L REMOTE MAPPER TERMINAL</a><span>v0.1 |</span></div>
-        <div className="terminal-boot-command">C:\&gt; RUN M4L_REMOTE_MAPPER.EXE <span className="ascii-cursor">_</span></div>
-        <div className="terminal-status-grid"><span>&gt; STATUS: READY</span><span>&gt; MODE: MAX_FOR_LIVE_REMOTE_SCRIPT</span><span>&gt; TARGET: {target.targetDeviceName}</span><span>&gt; MIDI_API: WEB_MIDI</span><span>&gt; EXPORT: ZIP_PACK</span><span>&gt; BUILD: LOCAL_ONLY</span></div>
+      {terminalTheme ? <header className="topbar ascii-boot-header terminal-command-bar ascii-terminal">
         <div className="terminal-header-commands"><nav className="mapper-switcher" aria-label="Mapper type"><a href="/" className="active">[ M4L MAPPER ]</a><a href="/ableton-device-mapper">[ ABLETON MAPPER ]</a></nav><ThemeSwitcher theme={uiTheme} setTheme={setUiTheme}/><button className="demo-button ascii-button" aria-label="Load nanoKONTROL2 full demo" onClick={loadDemo}>LOAD NANOKONTROL2 DEMO</button></div>
-      </header>
+      </header> : <header className="topbar">
+        <a className="brand" href="/" aria-label="M4L Remote Mapper home"><span className="brand__mark"><i/><i/><i/><i/></span><span>M4L <strong>Remote Mapper</strong></span></a>
+        <nav className="mapper-switcher" aria-label="Mapper type"><a href="/" className="active">Max for Live Mapper</a><a href="/ableton-device-mapper">Ableton Device Mapper</a></nav>
+        <div className="header-actions"><button className="demo-button" aria-label="Load nanoKONTROL2 full demo" onClick={loadDemo}>Load nanoKONTROL2 demo</button><ThemeSwitcher theme={uiTheme} setTheme={setUiTheme}/></div>
+      </header>}
 
       <main id="top">
-        <section className="terminal-intro ascii-window" aria-label="M4L Remote Mapper terminal introduction">
+        {terminalTheme ? <section className="terminal-intro ascii-window" aria-label="M4L Remote Mapper terminal introduction">
           <span className="terminal-intro__rule">+---------------- M4L REMOTE MAPPER / ASCII CONTROL TERMINAL ----------------+</span>
           <div><strong>WIRE MIDI.</strong><strong>CONTROL MAX FOR LIVE.</strong><strong>COMPILE REMOTE SCRIPT.</strong></div>
           <span className="terminal-intro__meta">[ TARGET:{target.targetDeviceName} ] [ ROUTES:{String(mappings.length).padStart(2, '0')} ] [ BUILD:LOCAL_ONLY ]</span>
           <span className="terminal-intro__rule">+----------------------------------------------------------------------------+</span>
-        </section>
+        </section> : <section className="hero m4l-classic-hero"><div className="eyebrow"><span className="live-dot"/> BROWSER-BASED SCRIPT FORGE / MAX FOR LIVE</div><h1>Wire your controller.<br/><em>Control Max for Live.</em></h1><p>Capture MIDI controls, route them to named Max for Live parameters, then export one coherent Ableton Remote Script pack.</p></section>}
         <nav className="stepper stepper--m4l-five" aria-label="Build steps">
           {STEP_LABELS.map((label, index) => (
             <button key={label} className={`step ${activeStep === index ? 'step--active' : ''}`} onClick={() => setActiveStep(index)}>
@@ -401,7 +402,7 @@ function App() {
 
         <section className="workspace">
           {activeStep === 0 && <article className="panel script-name-panel">
-            <PanelHeader index="01" title="Script Name" subtitle="Name the Control Surface shown in Ableton Live."/>
+            <PanelHeader terminal={terminalTheme} index="01" title="Script Name" subtitle="Name the Control Surface shown in Ableton Live."/>
             <div className="script-name-console"><label className="field"><span>SCRIPT_NAME</span><input aria-label="M4L script name" value={scriptName} onChange={(event) => setScriptName(event.target.value)} placeholder="M4L NanoKontrol Remote"/></label><div><span>ABLETON_SAFE_NAME:</span><strong>[ {scriptSlug} ]</strong></div><div><span>PYTHON_TARGET:</span><strong>[ {target.targetDeviceName} ]</strong></div></div>
             <div className="panel-actions"><button className="primary-button" onClick={() => setActiveStep(1)}>CONNECT CONTROLLER</button></div>
           </article>}
@@ -409,7 +410,7 @@ function App() {
           {activeStep === 1 && (
             <div className="panel-layout">
               <article className="panel panel--primary">
-                <PanelHeader index="02" title="Connect Controller" subtitle="Listen to CONTROL CHANGE messages through Web MIDI." />
+                <PanelHeader terminal={terminalTheme} index="02" title="Connect Controller" subtitle="Listen to CONTROL CHANGE messages through Web MIDI." />
                 <div className="status-strip">
                   <div><span>WEB MIDI</span><Badge status={midiSupported ? 'ready' : 'missing'}>{midiSupported ? 'AVAILABLE' : 'UNAVAILABLE'}</Badge></div>
                   <div><span>ACCESS</span><Badge status={midiStatus === 'ready' ? 'ready' : 'missing'}>{midiStatus === 'ready' ? 'ENABLED' : 'LOCKED'}</Badge></div>
@@ -432,7 +433,7 @@ function App() {
               </article>
 
               <aside className="panel">
-                <PanelHeader title="Detected controls" subtitle="Move a knob, fader, or button." compact />
+                <PanelHeader terminal={terminalTheme} title="Detected controls" subtitle="Move a knob, fader, or button." compact />
                 <ControlList controls={controls} updateControl={updateControl} addMapping={addMapping} />
               </aside>
             </div>
@@ -440,7 +441,7 @@ function App() {
 
           {activeStep === 2 && (
             <article className="panel target-panel">
-              <PanelHeader index="03" title="Max for Live Target" subtitle="Define the public parameter contract for your device." />
+              <PanelHeader terminal={terminalTheme} index="03" title="Max for Live Target" subtitle="Define the public parameter contract for your device." />
               <div className="target-grid">
                 <div className="target-form">
                   <label className="field"><span>TARGET DEVICE NAME</span><input value={target.targetDeviceName} onChange={(event) => updateTargetContract({ targetDeviceName: event.target.value })} /></label>
@@ -463,7 +464,7 @@ function App() {
 
           {activeStep === 3 && (
             <article className="panel m4l-custom-layout-panel">
-              <PanelHeader index="04" title="Custom M4L MIDI Layout" subtitle="Create modules, learn MIDI, then edit each M4L route." />
+              <PanelHeader terminal={terminalTheme} index="04" title="Custom M4L MIDI Layout" subtitle="Create modules, learn MIDI, then edit each M4L route." />
               <div className="custom-layout-creator"><label className="field custom-name-field"><span>LAYOUT</span><input aria-label="M4L custom layout name" value={customLayoutName} onChange={(event) => setCustomLayoutName(event.target.value)}/></label>{[['knobs','KNOBS'],['faders','FADERS'],['buttons','BUTTONS'],['actions','ACTIONS']].map(([key,label]) => <label className="field" key={key}><span>{label}</span><input aria-label={`M4L number of ${key}`} type="number" min="0" max="32" value={customCounts[key]} onChange={(event) => setCustomCounts((current) => ({ ...current, [key]: event.target.value }))}/></label>)}<button className="primary-button" onClick={buildCustomLayout}>CREATE CUSTOM LAYOUT</button></div>
               <M4LControllerLayoutPreview customLayouts={customLayouts} mappings={mappings} warnings={mappingWarnings} selectedMappingId={selectedVisualMappingId} learningMappingId={learningMappingId} parameterNames={parameterNames} buttonNames={buttonNames} onSelect={setSelectedVisualMappingId} onLearn={(id) => { setSelectedVisualMappingId(id); setLearningMappingId((current) => current === id ? '' : id) }} onUnassign={(id) => assignCustomSource(id, '')} onAddControl={addVisualControl} onRemoveControl={removeVisualControl} onRenameLayout={renameVisualLayout} onUpdateControl={updateVisualControl} onUpdateMapping={updateMapping}/>
               <details className="m4l-preset-panel"><summary>+---------------- PRESET M4L LAYOUTS ----------------+ <span>HIDDEN</span></summary><div className="preset-command-list">{[
@@ -478,7 +479,7 @@ function App() {
 
           {activeStep === 4 && (
             <article className="panel mapping-panel">
-              <PanelHeader index="05" title="Mapping Matrix" subtitle="Inspect every source, M4L target, mode, and route status." />
+              <PanelHeader terminal={terminalTheme} index="05" title="Mapping Matrix" subtitle="Inspect every source, M4L target, mode, and route status." />
               <div className="mapping-toolbar">
                 <span>{mappings.length} ACTIVE ROUTE{mappings.length === 1 ? '' : 'S'}</span>
                 <select onChange={(event) => { const control = controls.find((item) => item.id === event.target.value); if (control) addMapping(control); event.target.value = '' }} defaultValue="">
@@ -496,7 +497,7 @@ function App() {
 
           {activeStep === 5 && (
             <article className="panel export-panel">
-              <PanelHeader index="06" title="Export ZIP Pack" subtitle="Compile locally. No upload, account, or backend." />
+              <PanelHeader terminal={terminalTheme} index="06" title="Export ZIP Pack" subtitle="Compile locally. No upload, account, or backend." />
               <div className="export-terminal-summary ascii-window"><strong>+----------------------- EXPORT ZIP PACK -----------------------+</strong><span>| SCRIPT: {scriptSlug}</span><span>| DEVICE: {target.targetDeviceName}</span><span>| PARAMS: {String(mappings.filter((item) => item.targetType === 'm4l_parameter').length).padStart(2, '0')}</span><span>| BUTTONS: {String(mappings.filter((item) => item.targetType === 'm4l_button').length).padStart(2, '0')}</span><span>| ACTIONS: {String(mappings.filter((item) => item.targetType === 'global_action').length).padStart(2, '0')}</span><span>| STATUS: {mappings.some((item) => item.source) ? 'READY' : 'WAITING_FOR_MIDI_ROUTES'}</span><strong>+---------------------------------------------------------------+</strong></div>
               <div className="export-command-row"><button className="export-button" onClick={exportPack} disabled={!mappings.length || isExporting}>{isExporting ? 'BUILDING ZIP PACK' : 'EXPORT ZIP PACK'}</button><button className="secondary-button" onClick={exportKnownGoodTestPack} disabled={isExporting}>GENERATE KNOWN-GOOD NANOKONTROL2 TEST PACK</button></div>
               <FileTree scriptSlug={scriptSlug} />
@@ -506,16 +507,17 @@ function App() {
         </section>
       </main>
 
-      <footer><span>M4L REMOTE MAPPER TERMINAL EDITION / CONTROL STATION</span><span>DESIGN · LEARN · ROUTE · COMPILE</span><a href="https://deerflow.tech" target="_blank" rel="noreferrer">Created By Deerflow ↗</a></footer>
+      {terminalTheme ? <footer><span>M4L REMOTE MAPPER TERMINAL EDITION / CONTROL STATION</span><span>DESIGN · LEARN · ROUTE · COMPILE</span><a href="https://deerflow.tech" target="_blank" rel="noreferrer">Created By Deerflow ↗</a></footer> : <footer><span>M4L REMOTE MAPPER / SCRIPT FORGE</span><span>CAPTURE · MAP · VERIFY · EXPORT</span><a href="https://deerflow.tech" target="_blank" rel="noreferrer">Created By Deerflow ↗</a></footer>}
     </div>
   )
 }
 
 function ThemeSwitcher({ theme, setTheme }) {
-  return <div className="m4l-theme-switcher" role="group" aria-label="M4L interface theme"><span>THEME:</span><button type="button" className={theme === 'terminal' ? 'active' : ''} aria-pressed={theme === 'terminal'} onClick={() => setTheme('terminal')}>[ TERMINAL ]</button><button type="button" className={theme === 'classic' ? 'active' : ''} aria-pressed={theme === 'classic'} onClick={() => setTheme('classic')}>[ CLASSIC ]</button></div>
+  return <div className={theme === 'terminal' ? 'm4l-theme-switcher' : 'theme-switcher'} role="group" aria-label="M4L interface theme"><span>THEME:</span><button type="button" className={theme === 'terminal' ? 'active' : ''} aria-pressed={theme === 'terminal'} onClick={() => setTheme('terminal')}>[ TERMINAL ]</button><button type="button" className={theme === 'classic' ? 'active' : ''} aria-pressed={theme === 'classic'} onClick={() => setTheme('classic')}>[ CLASSIC ]</button></div>
 }
 
-function PanelHeader({ index, title, subtitle, compact = false }) {
+function PanelHeader({ index, title, subtitle, compact = false, terminal = true }) {
+  if (!terminal) return <div className={`panel-header ${compact ? 'panel-header--compact' : ''}`}>{index && <span className="panel-index">{index}</span>}<div><h2>{title}</h2><p>{subtitle}</p></div></div>
   return <div className={`panel-header ascii-frame-header ${compact ? 'panel-header--compact' : ''}`}><span className="ascii-frame-rule" aria-hidden="true">+----------------------------------------------------------------------------+</span><div className="ascii-frame-heading">{index && <span className="panel-index">| {index}</span>}<div><h2>{title}</h2><p>| {subtitle}</p></div><span aria-hidden="true">|</span></div><span className="ascii-frame-rule" aria-hidden="true">+----------------------------------------------------------------------------+</span></div>
 }
 

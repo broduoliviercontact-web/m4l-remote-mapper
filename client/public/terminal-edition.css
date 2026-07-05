@@ -742,22 +742,22 @@ footer a:hover { color: #000; background: var(--term-amber); }
 }
 .theme-classic.m4l-terminal-edition::before,
 .theme-classic.m4l-terminal-edition::after { display: none; }
-.theme-classic .topbar.ascii-boot-header,
-.theme-classic .panel,
-.theme-classic .ascii-window,
-.theme-classic .stepper { background: #12140f; box-shadow: 0 14px 38px rgba(0,0,0,.2); }
-.theme-classic .step:hover,
-.theme-classic .step--active,
-.theme-classic .m4l-theme-switcher button.active,
-.theme-classic .m4l-theme-switcher button:hover { color: #15110d; background: #ff9a56; }
-.theme-classic .primary-button,
-.theme-classic .secondary-button,
-.theme-classic .export-button { color: #ff9a56; }
-.theme-classic .primary-button:hover:not(:disabled),
-.theme-classic .secondary-button:hover:not(:disabled),
-.theme-classic .export-button:hover:not(:disabled) { color: #15110d; background: #ff9a56; }
-.theme-classic .terminal-title-line .brand,
-.theme-classic .terminal-boot-command { color: #ffb078; text-shadow: none; }
+.theme-classic.m4l-terminal-edition .topbar.ascii-boot-header,
+.theme-classic.m4l-terminal-edition .panel,
+.theme-classic.m4l-terminal-edition .ascii-window,
+.theme-classic.m4l-terminal-edition .stepper { background: #12140f; box-shadow: 0 14px 38px rgba(0,0,0,.2); }
+.theme-classic.m4l-terminal-edition .step:hover,
+.theme-classic.m4l-terminal-edition .step--active,
+.theme-classic.m4l-terminal-edition .m4l-theme-switcher button.active,
+.theme-classic.m4l-terminal-edition .m4l-theme-switcher button:hover { color: #15110d; background: #ff9a56; }
+.theme-classic.m4l-terminal-edition .primary-button,
+.theme-classic.m4l-terminal-edition .secondary-button,
+.theme-classic.m4l-terminal-edition .export-button { color: #ff9a56; }
+.theme-classic.m4l-terminal-edition .primary-button:hover:not(:disabled),
+.theme-classic.m4l-terminal-edition .secondary-button:hover:not(:disabled),
+.theme-classic.m4l-terminal-edition .export-button:hover:not(:disabled) { color: #15110d; background: #ff9a56; }
+.theme-classic.m4l-terminal-edition .terminal-title-line .brand,
+.theme-classic.m4l-terminal-edition .terminal-boot-command { color: #ffb078; text-shadow: none; }
 
 @media (max-width: 760px) {
   .m4l-terminal-edition main,
@@ -767,10 +767,146 @@ footer a:hover { color: #000; background: var(--term-amber); }
   .terminal-intro > div { display: grid; }
 }
 
+/* Unified M4L + Ableton terminal shell — Ableton terminal is the master layout. */
+.m4l-terminal-edition,
+.unified-terminal-shell {
+  --unified-shell-width: 1240px;
+  font-size: 10px;
+}
+
+.m4l-terminal-edition main,
+.unified-terminal-shell main {
+  width: min(var(--unified-shell-width), calc(100vw - 64px));
+  margin: 0 auto;
+}
+
+.m4l-terminal-edition .topbar.ascii-boot-header,
+.unified-terminal-shell .topbar.ascii-boot-header {
+  width: 100%;
+  min-height: 233px;
+  margin: 0;
+  border-right: 0;
+  border-left: 0;
+}
+.m4l-terminal-edition .terminal-title-line,
+.m4l-terminal-edition .terminal-boot-command,
+.m4l-terminal-edition .terminal-status-grid,
+.m4l-terminal-edition .terminal-header-commands,
+.unified-terminal-shell .terminal-title-line,
+.unified-terminal-shell .terminal-boot-command,
+.unified-terminal-shell .terminal-status-grid,
+.unified-terminal-shell .terminal-header-commands { padding-right: max(5vw, 32px); padding-left: max(5vw, 32px); }
+
+.m4l-terminal-edition .terminal-intro,
+.unified-terminal-shell .terminal-intro {
+  width: min(780px, 100%);
+  margin: 64px 0 50px;
+  padding: 18px 0;
+  border: 0;
+}
+.m4l-terminal-edition .terminal-intro > div,
+.unified-terminal-shell .terminal-intro > div {
+  display: grid;
+  gap: 4px;
+  padding: 16px 0 12px;
+  color: var(--term-amber-bright);
+  font-size: clamp(24px, 2.25vw, 36px);
+  line-height: 1.35;
+  letter-spacing: .055em;
+}
+.m4l-terminal-edition .terminal-intro > div strong::before,
+.unified-terminal-shell .terminal-intro > div strong::before { content: '| '; }
+.m4l-terminal-edition .terminal-intro__meta,
+.unified-terminal-shell .terminal-intro__meta { display: block; padding-top: 8px; font-size: 8px; }
+
+.m4l-terminal-edition .stepper,
+.unified-terminal-shell .stepper {
+  width: 100%;
+  min-height: 84px;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  margin-top: 0;
+}
+.m4l-terminal-edition .workspace,
+.unified-terminal-shell .workspace { padding: 24px 0 100px; }
+.m4l-terminal-edition .panel,
+.unified-terminal-shell .panel { padding: 22px; }
+.m4l-terminal-edition .panel-layout,
+.unified-terminal-shell .panel-layout { gap: 20px; }
+
+.unified-terminal-shell .panel-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  margin-bottom: 22px;
+  padding: 8px 0 14px;
+  border-top: 1px dashed var(--term-line);
+  border-bottom: 1px dashed var(--term-line);
+}
+.unified-terminal-shell .panel-header h2 { color: var(--term-amber-bright); font: inherit; font-size: 11px; letter-spacing: .05em; }
+.unified-terminal-shell .panel-header p { color: var(--term-muted); font-size: 7px; }
+.unified-terminal-shell .panel-index { align-self: start; }
+
+.m4l-terminal-edition .controller-designer,
+.unified-terminal-shell .controller-designer { max-width: 100%; margin-inline: auto; }
+.unified-terminal-shell .mapping-groups { max-width: 100%; overflow-x: auto; }
+
+.m4l-terminal-edition footer,
+.unified-terminal-shell footer {
+  width: min(var(--unified-shell-width), calc(100vw - 64px));
+  margin: 0 auto 28px;
+}
+
+.unified-terminal-shell .theme-switcher {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  color: var(--term-muted);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.unified-terminal-shell .theme-switcher button { padding: 3px 5px; border: 0; }
+.unified-terminal-shell .terminal-catalog-readout { color: var(--term-muted); font-size: 7px; }
+
+@media (max-width: 900px) {
+  .m4l-terminal-edition main,
+  .unified-terminal-shell main,
+  .m4l-terminal-edition footer,
+  .unified-terminal-shell footer { width: min(100% - 28px, var(--unified-shell-width)); }
+  .m4l-terminal-edition .stepper,
+  .unified-terminal-shell .stepper { grid-template-columns: repeat(6,minmax(120px,1fr)); overflow-x: auto; }
+  .m4l-terminal-edition .topbar.ascii-boot-header,
+  .unified-terminal-shell .topbar.ascii-boot-header { min-height: 0; }
+}
+
 @media (max-width: 620px) {
   .terminal-status-grid { grid-template-columns: 1fr; }
   .terminal-header-commands { align-items: flex-start; flex-direction: column; }
   .terminal-config-row { grid-template-columns: 1fr; }
   .m4l-terminal-edition .control-list { grid-template-columns: 1fr; }
   .target-name-list { grid-template-columns: 1fr; }
+}
+
+/* Compact shared navigation: the verbose boot/status screen is intentionally removed. */
+.m4l-terminal-edition .topbar.ascii-boot-header.terminal-command-bar,
+.unified-terminal-shell .topbar.ascii-boot-header.terminal-command-bar {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dashed var(--term-line);
+}
+.m4l-terminal-edition .topbar.terminal-command-bar::before,
+.m4l-terminal-edition .topbar.terminal-command-bar::after,
+.unified-terminal-shell .topbar.terminal-command-bar::before,
+.unified-terminal-shell .topbar.terminal-command-bar::after { content: none; }
+.m4l-terminal-edition .terminal-command-bar .terminal-header-commands,
+.unified-terminal-shell .terminal-command-bar .terminal-header-commands {
+  min-height: 46px;
+  padding: 9px max(5vw, 32px);
+  border-top: 0;
 }

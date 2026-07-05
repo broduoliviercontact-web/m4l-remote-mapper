@@ -7,7 +7,7 @@ Create installable Ableton Remote Scripts for Max for Live from your browser.
 [![Ableton Live](https://img.shields.io/badge/Ableton%20Live-12-111111)](https://www.ableton.com/live/)
 [![Max for Live](https://img.shields.io/badge/Max%20for%20Live-target-FF6B22)](https://www.ableton.com/live/max-for-live/)
 [![Web MIDI](https://img.shields.io/badge/Web%20MIDI-browser-8BC34A)](https://developer.mozilla.org/docs/Web/API/Web_MIDI_API)
-[![Tests](https://img.shields.io/badge/tests-17%20passing-B4EF64)](tests/remoteScriptGenerator.test.mjs)
+[![Tests](https://img.shields.io/badge/tests-24%20passing-B4EF64)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [Français](README.fr.md) · [Ableton installation](docs/ABLETON_INSTALLATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Development](docs/DEVELOPMENT.md)
@@ -76,6 +76,30 @@ The generated Python uses `EncoderElement` and `add_value_listener`; it does not
 - Troubleshooting and focused Log.txt commands
 - Known-good nanoKONTROL2 test pack
 - Transparent stereo Max Audio Effect target template
+- Separate Ableton Device Mapper for native Live instruments and effects
+- Visual M4L Custom Layout step with live knobs, faders, buttons, Learn MIDI, targets, and latch modes
+- Live 12.4.5b6 catalog with 83 devices and 2,746 parameters
+
+## Ableton Device Mapper
+
+Open `/ableton-device-mapper` or select **Ableton Device Mapper** in the top navigation to build a Remote Script for a native Live device such as Operator, Wavetable, Drift, Simpler, Auto Filter, EQ Eight, Roar, Hybrid Reverb, or Arpeggiator.
+
+The integrated six-step builder includes a visual **Custom Layout** creator with live MIDI knobs, faders, and buttons. Use the visible **UI · NORMAL / TERMINAL** switch in the header to change renderer without losing the current layout or assignments.
+
+Unlike the Max for Live workflow, this mode requires no target patch. Choose a device and one of its catalogued parameters, apply a controller layout, then export `Ableton_Device_Mapper_Pack`. The generated script searches the selected track first, then all tracks, return tracks, nested rack chains, and the master track. Devices resolve by user-visible name or Live class name.
+
+The known Operator Musical 8 layout starts with:
+
+| MIDI source | Operator parameter |
+| --- | --- |
+| CC16 | Volume |
+| CC17 | Tone |
+| CC18 | Filter Freq |
+| CC19 | Filter Res |
+
+Parameter aliases are matched before an optional catalog index. Fallback remains disabled by default, and continuous values are scaled through the native parameter's reported minimum and maximum.
+
+See [Ableton Device Mapper](docs/ABLETON_DEVICE_MAPPER.md) for its catalog contract, presets, generated ZIP, and installation workflow.
 
 ## Screenshots
 

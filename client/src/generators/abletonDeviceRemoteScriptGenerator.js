@@ -1,0 +1,281 @@
+import {
+  createScriptNaming,
+  makeDefaultScriptName,
+} from '../utils/scriptNaming.js'
+
+const pyString = (value) => JSON.stringify(String(value))
+const pyBoolean = (value) => value === true ? 'True' : 'False'
+
+const unique = (values) => [...new Set(values.filter(Boolean).map(String))]
+
+function createBuildId(profile) {
+  const source = JSON.stringify(profile)
+  let hash = 2166136261
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `native-v01-${(hash >>> 0).toString(16).padStart(8, '0')}`
+}
+
+export const createAbletonDeviceScriptSlug = (deviceName) => createScriptNaming(
+  makeDefaultScriptName({ deviceName, controllerName: 'MIDI Controller' }),
+).scriptSlug
+
+export function createAbletonDeviceProfile({ device, mappings, scriptDisplayName, controllerName, layoutStack = [], controlPool = [], customLayouts = [], mappingWarnings = [] }) {
+  const fallback = makeDefaultScriptName({ deviceName: device.deviceName, controllerName })
+  const naming = createScriptNaming(scriptDisplayName, fallback)
+  return {
+    schemaVersion: '0.1',
+    mapperType: 'ableton_device',
+    ...naming,
+    layoutStack,
+    controlPool,
+    customLayouts,
+    mappingWarnings,
+    target: {
+      deviceName: device.deviceName,
+      deviceCategory: device.deviceCategory,
+      deviceClassName: device.deviceClassName,
+      deviceAliases: unique([device.deviceName, device.deviceClassName]),
+      deviceMatchMode: 'name_or_class',
+      searchScope: 'selected_track_then_all_tracks',
+    },
+    mappings: mappings.map((mapping) => ({
+      source: mapping.source,
+      layoutId: mapping.layoutId || null,
+      layoutInstanceId: mapping.layoutInstanceId || null,
+      layoutName: mapping.layoutName || null,
+      createdBy: mapping.createdBy || 'manual',
+      userLabel: mapping.userLabel || mapping.source?.label || mapping.targetParameterName || 'Mapping',
+      controlType: mapping.controlType || 'continuous',
+      buttonMode: mapping.controlType === 'button' ? (mapping.buttonMode || 'momentary') : null,
+      buttonId: mapping.controlType === 'button' ? (mapping.buttonId || (mapping.source ? `${mapping.source.frameworkChannel}:${mapping.source.data1}` : '')) : null,
+      preferredControlKind: mapping.preferredControlKind || (mapping.controlType === 'button' ? 'button' : mapping.source?.controlKind || 'knob'),
+      visualControlId: mapping.visualControlId || null,
+      visualControlKind: mapping.visualControlKind || null,
+      visualControlLabel: mapping.visualControlLabel || null,
+      targetType: 'ableton_device_parameter',
+      targetDeviceName: device.deviceName,
+      targetDeviceAliases: unique([device.deviceName, device.deviceClassName, ...(mapping.targetDeviceAliases || [])]),
+      targetParameterName: mapping.targetParameterName,
+      parameterAliases: unique([mapping.targetParameterName, ...(mapping.parameterAliases || [])]),
+      liveIndex: mapping.liveIndex ?? null,
+      parameterIndex: mapping.parameterIndex ?? null,
+      parameterSection: mapping.parameterSection || 'Unclassified',
+      allowIndexFallback: mapping.allowIndexFallback === true,
+      scaling: mapping.invert ? 'inverted_parameter_min_max' : (mapping.scaling || 'parameter_min_max'),
+      invert: mapping.invert === true,
+      curve: mapping.curve || 'linear',
+    })),
+  }
+}
+
+function buildPythonMappings(profile) {
+  return profile.mappings
+    .filter((mapping) => mapping.source && mapping.targetParameterName)
+    .map((mapping) => `        {"channel": ${mapping.source.frameworkChannel}, "cc": ${mapping.source.data1}, "control_type": ${pyString(mapping.controlType)}, "type": "ableton_device_parameter", "button_mode": ${mapping.controlType === 'button' ? pyString(mapping.buttonMode) : 'None'}, "button_id": ${mapping.controlType === 'button' ? pyString(mapping.buttonId) : 'None'}, "device": ${pyString(mapping.targetDeviceName)}, "device_aliases": ${JSON.stringify(mapping.targetDeviceAliases)}, "parameter": ${pyString(mapping.targetParameterName)}, "parameter_aliases": ${JSON.stringify(mapping.parameterAliases)}, "parameter_index": ${mapping.parameterIndex == null ? 'None' : Number(mapping.parameterIndex)}, "allow_index_fallback": ${pyBoolean(mapping.allowIndexFallback)}, "scaling": ${pyString(mapping.scaling)}, "invert": ${pyBoolean(mapping.invert)}, "curve": ${pyString(mapping.curve)}}`)
+    .join(',\n')
+}
+
+export function generateAbletonDeviceRemoteScriptFiles({ device, mappings, scriptDisplayName, controllerName, layoutStack = [], controlPool = [], customLayouts = [], mappingWarnings = [] }) {
+  const profile = createAbletonDeviceProfile({ device, mappings, scriptDisplayName, controllerName, layoutStack, controlPool, customLayouts, mappingWarnings })
+  const { scriptSlug, pythonClassName } = profile
+  const buildId = createBuildId(profile)
+  const initPy = `from .${scriptSlug} import ${pythonClassName}\n\n\ndef create_instance(c_instance):\n    return ${pythonClassName}(c_instance)\n`
+  const scriptPy = `# Generated by Ableton Device Mapper v0.1
+import Live
+from _Framework.ControlSurface import ControlSurface
+from _Framework.InputControlElement import MIDI_CC_TYPE
+from _Framework.EncoderElement import EncoderElement
+
+
+class ${pythonClassName}(ControlSurface):
+    BUILD_ID = ${pyString(buildId)}
+    SCRIPT_DISPLAY_NAME = ${pyString(profile.scriptDisplayName)}
+    MAPPINGS = [
+${buildPythonMappings(profile)}
+    ]
+
+    def __init__(self, c_instance):
+        super(${pythonClassName}, self).__init__(c_instance)
+        with self.component_guard():
+            self._log("script loaded build_id={} script={}".format(self.BUILD_ID, self.SCRIPT_DISPLAY_NAME))
+            self._setup_mappings()
+
+    def _log(self, message):
+        text = "(Ableton Device Mapper) {}".format(message)
+        try:
+            self.c_instance().log_message(text)
+            return
+        except Exception:
+            pass
+        try:
+            self.canonical_parent.log_message(text)
+            return
+        except Exception:
+            pass
+        try:
+            self.show_message(text)
+        except Exception:
+            pass
+
+    def _setup_mappings(self):
+        self._mappings = list(self.MAPPINGS)
+        self._controls = []
+        self._button_states = {}
+        for mapping in self._mappings:
+            control = EncoderElement(
+                MIDI_CC_TYPE,
+                mapping["channel"],
+                mapping["cc"],
+                Live.MidiMap.MapMode.absolute
+            )
+            control.add_value_listener(self._make_value_listener(mapping))
+            self._controls.append(control)
+            self._log("listening CC channel={} cc={}".format(mapping["channel"], mapping["cc"]))
+
+    def _make_value_listener(self, mapping):
+        def listener(value):
+            self._log("CC received channel={} cc={} value={}".format(mapping["channel"], mapping["cc"], value))
+            self._apply_mapping(mapping, value)
+        return listener
+
+    def _apply_mapping(self, mapping, value):
+        parameter = self._find_parameter(mapping)
+        if parameter is None:
+            return
+        if mapping["control_type"] == "button":
+            self._apply_button_mapping(mapping, value, parameter)
+            return
+        scaled_value = self._scale_midi_to_parameter(value, parameter, mapping.get("invert", False))
+        parameter.value = scaled_value
+        self._log("parameter updated: {} value={} scaled={}".format(parameter.name, value, scaled_value))
+
+    def _apply_button_mapping(self, mapping, value, parameter):
+        button_mode = mapping.get("button_mode", "momentary")
+
+        if button_mode in ("momentary", "toggle_from_input"):
+            parameter.value = parameter.max if value > 0 else parameter.min
+            self._log("button updated: {} mode={} value={}".format(parameter.name, button_mode, value))
+            return
+
+        if button_mode == "toggle_in_script":
+            if value != 127:
+                return
+            button_id = mapping.get("button_id", "{}:{}".format(mapping["channel"], mapping["cc"]))
+            state = not self._button_states.get(button_id, False)
+            self._button_states[button_id] = state
+            parameter.value = parameter.max if state else parameter.min
+            self._log("button toggled: {} state={}".format(parameter.name, state))
+            return
+
+        if button_mode == "trigger":
+            if value != 127:
+                return
+            parameter.value = parameter.max
+            parameter.value = parameter.min
+            self._log("button triggered: {}".format(parameter.name))
+
+    def _find_target_device(self, mapping):
+        song = self.song()
+        selected_track = getattr(getattr(song, "view", None), "selected_track", None)
+        tracks = []
+        if selected_track is not None:
+            tracks.append(selected_track)
+        for track in list(song.tracks) + list(song.return_tracks):
+            if track not in tracks:
+                tracks.append(track)
+        master_track = getattr(song, "master_track", None)
+        if master_track is not None and master_track not in tracks:
+            tracks.append(master_track)
+
+        aliases = mapping.get("device_aliases", [mapping["device"]])
+        for track in tracks:
+            device = self._find_device_in_chain(getattr(track, "devices", []), aliases)
+            if device is not None:
+                self._log("target device found: {}".format(getattr(device, "name", mapping["device"])))
+                return device
+        self._log("device not found: aliases={}".format(aliases))
+        return None
+
+    def _find_device_in_chain(self, devices, aliases):
+        normalized_aliases = [self._normalize_name(alias) for alias in aliases]
+        for device in devices:
+            candidates = [
+                getattr(device, "name", ""),
+                getattr(device, "class_name", ""),
+                getattr(device, "class_display_name", ""),
+            ]
+            if any(candidate in aliases for candidate in candidates):
+                return device
+            if any(self._normalize_name(candidate) in normalized_aliases for candidate in candidates if candidate):
+                return device
+            if getattr(device, "can_have_chains", False):
+                for chain in getattr(device, "chains", []):
+                    nested = self._find_device_in_chain(getattr(chain, "devices", []), aliases)
+                    if nested is not None:
+                        return nested
+        return None
+
+    def _find_parameter(self, mapping):
+        target_device = self._find_target_device(mapping)
+        if target_device is None:
+            return None
+        parameters = list(getattr(target_device, "parameters", []))
+        aliases = mapping.get("parameter_aliases", [mapping["parameter"]])
+        for alias in aliases:
+            for parameter in parameters:
+                if parameter.name == alias:
+                    self._log("parameter found: {} alias={}".format(parameter.name, alias))
+                    return parameter
+        normalized_aliases = [self._normalize_name(alias) for alias in aliases]
+        for parameter in parameters:
+            if self._normalize_name(parameter.name) in normalized_aliases:
+                self._log("parameter found normalized: {}".format(parameter.name))
+                return parameter
+
+        self._log("parameter missing by aliases: {}".format(aliases))
+        self._log("available parameters: {}".format(", ".join([parameter.name for parameter in parameters])))
+        if mapping.get("allow_index_fallback") is not True:
+            self._log("index fallback disabled for {}".format(mapping["parameter"]))
+            return None
+
+        automatable_parameters = [parameter for parameter in parameters if parameter.name != "Device On"]
+        index = mapping.get("parameter_index")
+        if index is None or index < 0 or index >= len(automatable_parameters):
+            self._log("unsafe fallback rejected: target={} index={} resolved=out_of_range".format(mapping["parameter"], index))
+            return None
+        fallback_parameter = automatable_parameters[index]
+        if not getattr(fallback_parameter, "is_enabled", True):
+            self._log("unsafe fallback rejected: target={} index={} resolved=disabled".format(mapping["parameter"], index))
+            return None
+        self._log("safe fallback accepted: target={} index={} resolved={}".format(mapping["parameter"], index, fallback_parameter.name))
+        return fallback_parameter
+
+    def _scale_midi_to_parameter(self, midi_value, parameter, invert=False):
+        try:
+            minimum = float(parameter.min)
+            maximum = float(parameter.max)
+            normalized = max(0.0, min(1.0, float(midi_value) / 127.0))
+            if invert:
+                normalized = 1.0 - normalized
+            return minimum + ((maximum - minimum) * normalized)
+        except Exception:
+            return max(0.0, min(1.0, float(midi_value) / 127.0))
+
+    @staticmethod
+    def _normalize_name(value):
+        return "".join(character.lower() for character in str(value) if character.isalnum())
+`
+
+  return {
+    scriptSlug,
+    scriptDisplayName: profile.scriptDisplayName,
+    pythonClassName,
+    buildId,
+    '__init__.py': initPy,
+    [`${scriptSlug}.py`]: scriptPy,
+    'profile.json': `${JSON.stringify(profile, null, 2)}\n`,
+  }
+}

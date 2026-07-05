@@ -4,7 +4,12 @@ Notable changes to M4L Remote Mapper are documented here. The project follows [S
 
 ## [Unreleased]
 
-- No changes yet.
+### Added
+
+- Separate `/ableton-device-mapper` workflow for native Ableton Live devices.
+- Combined Live 12.4.5b6 catalog with 83 devices and 2,746 parameters.
+- Operator Musical 8, Auto Filter, EQ Eight, generic knob/fader, and blank presets.
+- Native-device Python generator, ZIP installer, setup wizard, and troubleshooting guide.
 
 ## [0.4.1] - 2026-07-02
 

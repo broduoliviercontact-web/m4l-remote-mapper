@@ -7,7 +7,7 @@ Créer des Remote Scripts Ableton pour Max for Live depuis le navigateur.
 [![Ableton Live](https://img.shields.io/badge/Ableton%20Live-12-111111)](https://www.ableton.com/live/)
 [![Max for Live](https://img.shields.io/badge/Max%20for%20Live-cible-FF6B22)](https://www.ableton.com/live/max-for-live/)
 [![Web MIDI](https://img.shields.io/badge/Web%20MIDI-navigateur-8BC34A)](https://developer.mozilla.org/docs/Web/API/Web_MIDI_API)
-[![Tests](https://img.shields.io/badge/tests-17%20validés-B4EF64)](tests/remoteScriptGenerator.test.mjs)
+[![Tests](https://img.shields.io/badge/tests-24%20validés-B4EF64)](tests/)
 [![Licence MIT](https://img.shields.io/badge/Licence-MIT-yellow.svg)](LICENSE)
 
 [English](README.md) · [Installation Ableton](docs/ABLETON_INSTALLATION.md) · [Dépannage](docs/TROUBLESHOOTING.md)
@@ -69,6 +69,30 @@ flowchart LR
 - Troubleshooting et commandes Log.txt
 - Pack de test nanoKONTROL2 connu-bon
 - Template Max Audio Effect stéréo transparent
+- Ableton Device Mapper séparé pour les instruments et effets natifs de Live
+- Étape Custom Layout M4L avec knobs, faders, boutons, Learn MIDI, cibles et modes latch en temps réel
+- Catalogue Live 12.4.5b6 de 83 devices et 2 746 paramètres
+
+## Ableton Device Mapper
+
+Ouvrir `/ableton-device-mapper` ou choisir **Ableton Device Mapper** dans la navigation principale pour créer un Remote Script destiné à un device natif : Operator, Wavetable, Drift, Simpler, Auto Filter, EQ Eight, Roar, Hybrid Reverb, Arpeggiator, etc.
+
+Le Builder intégré en six étapes comprend un créateur visuel **Custom Layout** avec knobs, faders et boutons animés par le MIDI. Le sélecteur visible **UI · NORMAL / TERMINAL** dans le header change de renderer sans perdre le layout ni les assignations.
+
+Contrairement au workflow Max for Live, cette vue ne demande aucun patch cible. L'utilisateur choisit un device et ses paramètres catalogués, applique un layout de contrôleur, puis exporte `Ableton_Device_Mapper_Pack`. Le script cherche d'abord sur la piste sélectionnée, puis dans toutes les pistes, retours, racks imbriqués et la piste Master. Le device est reconnu par son nom visible ou sa classe Live.
+
+Le preset Operator Musical 8 commence ainsi :
+
+| Source MIDI | Paramètre Operator |
+| --- | --- |
+| CC16 | Volume |
+| CC17 | Tone |
+| CC18 | Filter Freq |
+| CC19 | Filter Res |
+
+Les aliases sont prioritaires ; le fallback par index du catalogue reste désactivé par défaut. Les valeurs continues sont adaptées au minimum et au maximum réels du paramètre natif.
+
+Voir [Ableton Device Mapper](docs/ABLETON_DEVICE_MAPPER.md) pour le contrat du catalogue, les presets, le ZIP et l'installation.
 
 ## Captures
 

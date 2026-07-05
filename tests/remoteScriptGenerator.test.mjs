@@ -85,19 +85,20 @@ test('Max for Live template exposes eight exact parameters and transparent stere
   assert.doesNotMatch(source, /S1|s1_param/i)
 })
 
-test('Button Bank and all button modes are exposed in the UI', async () => {
+test('terminal target contract and all button modes are exposed in the UI', async () => {
   const appSource = await readFile(appPath, 'utf8')
 
-  assert.match(appSource, /BUTTON BANK/)
-  assert.match(appSource, /MOMENTARY \/ TOGGLE \/ TRIGGER/)
+  assert.match(appSource, /BUTTONS:/)
+  assert.match(appSource, /MAX FOR LIVE TARGET/)
   assert.match(appSource, /toggle_from_input/)
   assert.match(appSource, /toggle_in_script/)
   assert.match(appSource, /Load nanoKONTROL2 full demo/)
   assert.match(appSource, /MIDI sends 0–127/)
-  assert.match(appSource, />Momentary</)
-  assert.match(appSource, />Input toggle</)
-  assert.match(appSource, />Script toggle</)
-  assert.match(appSource, />Trigger</)
+  assert.match(appSource, /buttonMode: isButton \? 'toggle_in_script'/)
+  assert.match(appSource, /SCRIPT_TOGGLE/)
+  assert.match(appSource, /MOMENTARY/)
+  assert.match(appSource, /INPUT_TOGGLE/)
+  assert.match(appSource, /TRIGGER/)
   assert.match(appSource, /Name match only/)
   assert.match(appSource, /Index fallback enabled/)
   assert.match(appSource, /Allow index fallback if name is missing/)

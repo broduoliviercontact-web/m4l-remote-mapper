@@ -13,6 +13,7 @@ import {
   parsePortableM4LProfile,
 } from '../client/src/utils/customM4LLayoutBuilder.js'
 import { generateRemoteScriptFiles } from '../client/src/generators/remoteScriptGenerator.js'
+import { readSharedTheme, SHARED_THEME_KEY, writeSharedTheme } from '../client/src/utils/sharedTheme.js'
 
 const target = { targetDeviceName: 'M4L-Remote-Target', parameterCount: 8, parameterPrefix: 'M4L Param', buttonCount: 8, buttonPrefix: 'M4L Button' }
 const parameterNames = Array.from({ length: 8 }, (_, index) => `M4L Param ${index + 1}`)
@@ -97,8 +98,10 @@ test('assigned custom layout still generates safe compilable Python with button 
 test('Terminal UI exposes the M4L preview, actions, presets and profile controls', async () => {
   const root = process.cwd()
   const app = await readFile(path.join(root, 'client/src/App.jsx'), 'utf8')
+  const abletonApp = await readFile(path.join(root, 'client/src/AbletonDeviceMapper.jsx'), 'utf8')
   const preview = await readFile(path.join(root, 'client/src/components/M4LControllerLayoutPreview.jsx'), 'utf8')
   const css = await readFile(path.join(root, 'client/public/terminal-edition.css'), 'utf8')
+  const classicCss = await readFile(path.join(root, 'client/src/styles.css'), 'utf8')
   assert.match(app, /M4LControllerLayoutPreview/)
   assert.match(app, /Custom M4L MIDI Layout/)
   assert.match(app, /ACTIONS/)
@@ -111,17 +114,19 @@ test('Terminal UI exposes the M4L preview, actions, presets and profile controls
   assert.match(preview, /REMOVE SELECTED/)
   assert.match(preview, /Capture MIDI/)
   assert.match(preview, /value == 127/)
-  assert.match(app, /M4L_REMOTE_MAPPER\.EXE/)
   assert.match(app, /terminal-theme-stylesheet/)
   assert.match(app, /terminal-edition\.css/)
   assert.match(app, /ThemeSwitcher/)
   assert.match(app, /m4l-remote-mapper-theme/)
-  assert.match(app, /window\.localStorage\.setItem/)
+  assert.match(app, /writeSharedTheme\(uiTheme\)/)
   assert.match(app, /theme-terminal/)
   assert.match(app, /theme-classic/)
-  assert.match(app, /return stored === 'classic' \? 'classic' : 'terminal'/)
+  assert.match(app, /m4l-classic/)
+  assert.match(app, /m4l-classic-hero/)
+  assert.match(app, /stylesheet\.media = uiTheme === 'terminal' \? 'all' : 'not all'/)
+  assert.match(app, /if \(!terminal\) return <div className=/)
+  assert.match(app, /readSharedTheme\('m4l-remote-mapper-theme'\)/)
   assert.match(app, /'Script Name', 'Connect Controller', 'Max for Live Target', 'Custom Layout', 'Mapping', 'Export ZIP'/)
-  assert.match(app, /MAX_FOR_LIVE_REMOTE_SCRIPT/)
   assert.match(app, /MAX FOR LIVE TARGET/)
   assert.match(app, /Export ZIP Pack/)
   assert.doesNotMatch(app, /WIRE YOUR CONTROLLER INTO MAX FOR LIVE/i)
@@ -132,4 +137,43 @@ test('Terminal UI exposes the M4L preview, actions, presets and profile controls
   assert.match(css, /width: min\(1080px/)
   assert.match(css, /\.m4l-theme-switcher/)
   assert.match(css, /\.theme-classic/)
+  assert.match(classicCss, /\.m4l-classic \.stepper--m4l-five/)
+  assert.match(abletonApp, /unified-terminal-shell/)
+  assert.match(app, /terminal-command-bar/)
+  assert.match(abletonApp, /terminal-command-bar/)
+  assert.doesNotMatch(app, /terminal-boot-command/)
+  assert.doesNotMatch(app, /terminal-status-grid/)
+  assert.doesNotMatch(abletonApp, /terminal-boot-command/)
+  assert.doesNotMatch(abletonApp, /terminal-status-grid/)
+  assert.match(abletonApp, /terminal-intro native-terminal-intro/)
+  assert.match(abletonApp, /\[ TERMINAL \]/)
+  assert.match(abletonApp, /\[ CLASSIC \]/)
+  assert.match(css, /\.m4l-terminal-edition,\s*\n\.unified-terminal-shell/)
+  assert.match(css, /--unified-shell-width: 1240px/)
+})
+
+test('M4L and Ableton mapper share one persistent Terminal or Classic preference', () => {
+  const previousWindow = globalThis.window
+  const storage = new Map()
+  globalThis.window = {
+    localStorage: {
+      getItem: (key) => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value),
+    },
+  }
+
+  try {
+    writeSharedTheme('terminal')
+    assert.equal(storage.get(SHARED_THEME_KEY), 'terminal')
+    assert.equal(readSharedTheme('m4l-remote-mapper-theme'), 'terminal')
+    assert.equal(readSharedTheme('ableton-device-mapper-theme', 'normal'), 'terminal')
+
+    writeSharedTheme('normal')
+    assert.equal(storage.get(SHARED_THEME_KEY), 'classic')
+    assert.equal(readSharedTheme('m4l-remote-mapper-theme'), 'classic')
+    assert.equal(readSharedTheme('ableton-device-mapper-theme', 'normal'), 'classic')
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window
+    else globalThis.window = previousWindow
+  }
 })
