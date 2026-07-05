@@ -14,7 +14,7 @@ function AsciiControlGlyph({ kind, mapping }) {
   const percent = (value / 127) * 100
   if (kind === 'knob') {
     return <div className="ascii-control-glyph ascii-knob" role="img" aria-label={`Knob value ${value}`}>
-      <pre aria-hidden="true">{`   .---------.
+      <pre aria-hidden="true">{String.raw`   .---------.
   /           \
  |      O      |
   \___________/`}</pre>
@@ -47,7 +47,7 @@ function VisualControl({ control, mapping, warnings, selected, learning, onSelec
   return <div role="button" tabIndex="0" data-control-kind={control.kind} className={`visual-control visual-control--${control.kind} ${selected ? 'visual-control--selected' : ''} ${learning ? 'visual-control--learning' : ''} ${hasWarnings ? 'visual-control--warning' : ''}`} onClick={onSelect} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelect() }}>
     <span className="ascii-control-border" aria-hidden="true">+--------------------------+</span>
     <div className="ascii-control-body">
-      <strong>|{selected ? '>' : ' '} {mapping?.visualControlLabel || control.label}</strong>
+      <strong>{selected ? '> ' : '| '}{mapping?.visualControlLabel || control.label}</strong>
       <AsciiControlGlyph kind={control.kind} mapping={mapping}/>
       <span className={mapping?.source ? 'visual-route visual-route--assigned' : 'visual-route'}>| MIDI: {learning ? 'WAIT..._' : mapping?.source ? `CC${mapping.source.data1} / CH${mapping.source.userChannel}` : 'LEARN'}</span>
       <span className="visual-target">| TARGET: {targetLabel(mapping)}</span>

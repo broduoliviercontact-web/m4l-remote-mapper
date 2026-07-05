@@ -114,6 +114,8 @@ test('Terminal UI exposes the M4L preview, actions, presets and profile controls
   assert.match(preview, /REMOVE SELECTED/)
   assert.match(preview, /Capture MIDI/)
   assert.match(preview, /value == 127/)
+  assert.match(preview, /String\.raw`   \.---------\./)
+  assert.doesNotMatch(preview, /\|\{selected \? '>'/)
   assert.match(app, /terminal-theme-stylesheet/)
   assert.match(app, /terminal-edition\.css/)
   assert.match(app, /ThemeSwitcher/)
