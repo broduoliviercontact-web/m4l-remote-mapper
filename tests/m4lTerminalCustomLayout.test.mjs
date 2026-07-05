@@ -1,0 +1,135 @@
+import assert from 'node:assert/strict'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import test from 'node:test'
+
+import {
+  assignM4LMidiSource,
+  createCustomM4LLayout,
+  createPortableM4LProfile,
+  detectM4LMappingWarnings,
+  parsePortableM4LProfile,
+} from '../client/src/utils/customM4LLayoutBuilder.js'
+import { generateRemoteScriptFiles } from '../client/src/generators/remoteScriptGenerator.js'
+
+const target = { targetDeviceName: 'M4L-Remote-Target', parameterCount: 8, parameterPrefix: 'M4L Param', buttonCount: 8, buttonPrefix: 'M4L Button' }
+const parameterNames = Array.from({ length: 8 }, (_, index) => `M4L Param ${index + 1}`)
+const buttonNames = Array.from({ length: 8 }, (_, index) => `M4L Button ${index + 1}`)
+
+const createLayout = () => {
+  let id = 0
+  return createCustomM4LLayout({
+    name: 'My M4L Performance Layout', knobs: 4, faders: 2, buttons: 4, actions: 1,
+    target, parameterNames, buttonNames, idFactory: (prefix) => `${prefix}-${++id}`,
+  })
+}
+
+test('Custom M4L layout creates 4 knobs, 2 faders, 4 buttons and one Capture MIDI action', () => {
+  const created = createLayout()
+  assert.equal(created.mappings.length, 11)
+  assert.deepEqual(created.mappings.map((mapping) => mapping.visualControlKind), ['knob', 'knob', 'knob', 'knob', 'fader', 'fader', 'button', 'button', 'button', 'button', 'action'])
+  assert.ok(created.mappings.slice(0, 6).every((mapping) => mapping.controlType === 'continuous' && mapping.targetType === 'm4l_parameter'))
+  assert.deepEqual(created.mappings.slice(0, 6).map((mapping) => mapping.targetParameterName), parameterNames.slice(0, 6))
+  assert.ok(created.mappings.slice(6, 10).every((mapping) => mapping.controlType === 'button' && mapping.targetType === 'm4l_button' && mapping.buttonMode === 'toggle_in_script'))
+  const action = created.mappings.at(-1)
+  assert.equal(action.targetType, 'global_action')
+  assert.equal(action.actionName, 'Capture MIDI')
+  assert.equal(action.buttonMode, 'trigger')
+  assert.equal(action.triggerMode, 'value_eq_127')
+  assert.ok(created.mappings.every((mapping) => mapping.createdBy === 'custom_layout' && mapping.layoutId === 'custom-m4l-layout'))
+  assert.ok(created.mappings.every((mapping) => mapping.visualControlId && mapping.visualControlKind && mapping.visualControlLabel && mapping.layoutInstanceId))
+  assert.equal(created.customLayout.mapperType, 'm4l_remote')
+})
+
+test('visual Learn MIDI assigns the intended CC and reports duplicate MIDI without blocking reassignment', () => {
+  const created = createLayout()
+  const source = { id: 'controller-0-16', endpointName: 'Controller', userChannel: 1, frameworkChannel: 0, data1: 16, lastValue: 100, label: 'CC 16', controlKind: 'knob' }
+  let mappings = assignM4LMidiSource(created.mappings, created.mappings[0].id, source)
+  assert.equal(mappings[0].source.data1, 16)
+  mappings = assignM4LMidiSource(mappings, mappings[1].id, source)
+  const duplicate = detectM4LMappingWarnings(mappings).find((warning) => warning.type === 'duplicate_midi_source')
+  assert.deepEqual(duplicate.mappingIds, [mappings[0].id, mappings[1].id])
+  const replacement = { ...source, id: 'controller-0-17', data1: 17, label: 'CC 17' }
+  mappings = assignM4LMidiSource(mappings, mappings[1].id, replacement)
+  assert.equal(detectM4LMappingWarnings(mappings).some((warning) => warning.type === 'duplicate_midi_source'), false)
+})
+
+test('portable profile and generated profile preserve customLayouts and visual metadata', () => {
+  const created = createLayout()
+  const controlPool = [{ id: 'controller-0-16', endpointName: 'Controller', userChannel: 1, frameworkChannel: 0, data1: 16, lastValue: 0, label: 'CC 16', controlKind: 'knob' }]
+  const portable = createPortableM4LProfile({ scriptName: 'M4L Performance', target, mappings: created.mappings, controlPool, customLayouts: [created.customLayout], layoutStack: [created.layoutEntry] })
+  const restored = parsePortableM4LProfile(JSON.stringify(portable))
+  assert.equal(restored.customLayouts[0].layoutName, 'My M4L Performance Layout')
+  assert.equal(restored.customLayouts[0].controls.length, 11)
+  assert.equal(restored.mappings.at(-1).actionName, 'Capture MIDI')
+
+  const files = generateRemoteScriptFiles({ target, mappings: created.mappings, customLayouts: [created.customLayout], controlPool, layoutStack: [created.layoutEntry] })
+  const profile = JSON.parse(files['profile.json'])
+  assert.equal(profile.mapperType, 'm4l_remote')
+  assert.equal(profile.customLayouts[0].controllerLayoutType, 'custom_grid')
+  assert.equal(profile.mappings[0].visualControlLabel, 'Knob 1')
+  assert.equal(profile.mappings.at(-1).visualControlKind, 'action')
+})
+
+test('assigned custom layout still generates safe compilable Python with button and Capture MIDI logic', async () => {
+  const created = createLayout()
+  let mappings = created.mappings
+  for (let index = 0; index < mappings.length; index += 1) {
+    mappings = assignM4LMidiSource(mappings, mappings[index].id, { id: `controller-0-${16 + index}`, endpointName: 'Controller', userChannel: 1, frameworkChannel: 0, data1: 16 + index, lastValue: 0, label: `CC ${16 + index}`, controlKind: mappings[index].preferredControlKind })
+  }
+  const files = generateRemoteScriptFiles({ target, mappings, customLayouts: [created.customLayout] })
+  const script = files[`${files.scriptSlug}.py`]
+  assert.match(script, /def _apply_button_mapping\(self, mapping, value, parameter\):/)
+  assert.match(script, /self\.song\(\)\.capture_midi\(\)/)
+  assert.doesNotMatch(script, /self\.log_message\(/)
+  assert.doesNotMatch(script, /def receive_midi\(/)
+  const directory = await mkdtemp(path.join(tmpdir(), 'm4l-terminal-layout-'))
+  try {
+    const file = path.join(directory, `${files.scriptSlug}.py`)
+    await writeFile(file, script, 'utf8')
+    const result = spawnSync('python3', ['-m', 'py_compile', file], { encoding: 'utf8' })
+    assert.equal(result.status, 0, result.stderr)
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
+
+test('Terminal UI exposes the M4L preview, actions, presets and profile controls', async () => {
+  const root = process.cwd()
+  const app = await readFile(path.join(root, 'client/src/App.jsx'), 'utf8')
+  const preview = await readFile(path.join(root, 'client/src/components/M4LControllerLayoutPreview.jsx'), 'utf8')
+  const css = await readFile(path.join(root, 'client/public/terminal-edition.css'), 'utf8')
+  assert.match(app, /M4LControllerLayoutPreview/)
+  assert.match(app, /Custom M4L MIDI Layout/)
+  assert.match(app, /ACTIONS/)
+  assert.match(app, /PRESET M4L LAYOUTS/)
+  assert.match(app, /EXPORT PROFILE JSON/)
+  assert.match(app, /IMPORT PROFILE JSON/)
+  assert.match(app, /terminal-mapping-matrix/)
+  assert.match(preview, /CUSTOM M4L MIDI SURFACE/)
+  assert.match(preview, /ADD ACTION/)
+  assert.match(preview, /REMOVE SELECTED/)
+  assert.match(preview, /Capture MIDI/)
+  assert.match(preview, /value == 127/)
+  assert.match(app, /M4L_REMOTE_MAPPER\.EXE/)
+  assert.match(app, /terminal-theme-stylesheet/)
+  assert.match(app, /terminal-edition\.css/)
+  assert.match(app, /ThemeSwitcher/)
+  assert.match(app, /m4l-remote-mapper-theme/)
+  assert.match(app, /window\.localStorage\.setItem/)
+  assert.match(app, /theme-terminal/)
+  assert.match(app, /theme-classic/)
+  assert.match(app, /return stored === 'classic' \? 'classic' : 'terminal'/)
+  assert.match(app, /'Script Name', 'Connect Controller', 'Max for Live Target', 'Custom Layout', 'Mapping', 'Export ZIP'/)
+  assert.match(app, /MAX_FOR_LIVE_REMOTE_SCRIPT/)
+  assert.match(app, /MAX FOR LIVE TARGET/)
+  assert.match(app, /Export ZIP Pack/)
+  assert.doesNotMatch(app, /WIRE YOUR CONTROLLER INTO MAX FOR LIVE/i)
+  assert.match(css, /--term-bg: #000/)
+  assert.match(css, /--term-amber: #ffb000/)
+  assert.match(css, /\.ascii-terminal/)
+  assert.match(css, /\.ascii-table/)
+  assert.match(css, /width: min\(1080px/)
+  assert.match(css, /\.m4l-theme-switcher/)
+  assert.match(css, /\.theme-classic/)
+})
