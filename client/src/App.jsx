@@ -375,10 +375,10 @@ function App() {
     <div className={`app-shell m4l-remote-mapper ${terminalTheme ? 'm4l-terminal-edition ascii-shell' : 'm4l-classic'} theme-${uiTheme}`} data-theme={uiTheme}>
       <div className="ambient-grid" />
       {terminalTheme ? <header className="topbar ascii-boot-header terminal-command-bar ascii-terminal">
-        <div className="terminal-header-commands"><nav className="mapper-switcher" aria-label="Mapper type"><a href="/" className="active">[ M4L MAPPER ]</a><a href="/ableton-device-mapper">[ ABLETON MAPPER ]</a></nav><ThemeSwitcher theme={uiTheme} setTheme={setUiTheme}/><button className="demo-button ascii-button" aria-label="Load nanoKONTROL2 full demo" onClick={loadDemo}>LOAD NANOKONTROL2 DEMO</button></div>
+        <div className="terminal-header-commands"><nav className="mapper-switcher" aria-label="Mapper type"><a href={`${import.meta.env.BASE_URL}?mapper=m4l`} className="active">[ M4L MAPPER ]</a><a href={`${import.meta.env.BASE_URL}?mapper=ableton`}>[ ABLETON MAPPER ]</a></nav><ThemeSwitcher theme={uiTheme} setTheme={setUiTheme}/><button className="demo-button ascii-button" aria-label="Load nanoKONTROL2 full demo" onClick={loadDemo}>LOAD NANOKONTROL2 DEMO</button></div>
       </header> : <header className="topbar">
-        <a className="brand" href="/" aria-label="M4L Remote Mapper home"><span className="brand__mark"><i/><i/><i/><i/></span><span>M4L <strong>Remote Mapper</strong></span></a>
-        <nav className="mapper-switcher" aria-label="Mapper type"><a href="/" className="active">Max for Live Mapper</a><a href="/ableton-device-mapper">Ableton Device Mapper</a></nav>
+        <a className="brand" href={`${import.meta.env.BASE_URL}?mapper=m4l`} aria-label="M4L Remote Mapper home"><span className="brand__mark"><i/><i/><i/><i/></span><span>M4L <strong>Remote Mapper</strong></span></a>
+        <nav className="mapper-switcher" aria-label="Mapper type"><a href={`${import.meta.env.BASE_URL}?mapper=m4l`} className="active">Max for Live Mapper</a><a href={`${import.meta.env.BASE_URL}?mapper=ableton`}>Ableton Device Mapper</a></nav>
         <div className="header-actions"><button className="demo-button" aria-label="Load nanoKONTROL2 full demo" onClick={loadDemo}>Load nanoKONTROL2 demo</button><ThemeSwitcher theme={uiTheme} setTheme={setUiTheme}/></div>
       </header>}
 

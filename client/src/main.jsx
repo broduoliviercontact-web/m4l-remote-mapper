@@ -4,7 +4,9 @@ import App from './App.jsx'
 import './styles.css'
 
 const AbletonDeviceMapper = lazy(() => import('./AbletonDeviceMapper.jsx'))
-const isAbletonDeviceMapper = window.location.pathname.replace(/\/+$/, '') === '/ableton-device-mapper'
+const mapperQuery = new URLSearchParams(window.location.search).get('mapper')
+const legacyAbletonPath = window.location.pathname.replace(/\/+$/, '') === '/ableton-device-mapper'
+const isAbletonDeviceMapper = mapperQuery === 'ableton' || (mapperQuery !== 'm4l' && legacyAbletonPath)
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
