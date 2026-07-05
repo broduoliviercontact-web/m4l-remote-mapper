@@ -907,6 +907,12 @@ footer a:hover { color: #000; background: var(--term-amber); }
 .m4l-terminal-edition .terminal-command-bar .terminal-header-commands,
 .unified-terminal-shell .terminal-command-bar .terminal-header-commands {
   min-height: 46px;
-  padding: 9px max(5vw, 32px);
+  padding: 9px 4vw;
   border-top: 0;
+}
+.m4l-terminal-edition .terminal-header-actions,
+.unified-terminal-shell .terminal-header-actions {
+  margin-left: auto;
+  justify-content: flex-end;
+  gap: 14px;
 }
